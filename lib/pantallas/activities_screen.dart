@@ -5,6 +5,9 @@ import 'package:sabia/models/log_entry.dart';
 import 'package:sabia/pantallas/home_screen.dart';
 import 'package:sabia/pantallas/profile_screen.dart';
 import 'package:sabia/pantallas/config_voz_screen.dart';
+import 'package:sabia/pantallas/NyCM/vocales.dart';
+import 'package:sabia/pantallas/NyCM/hlilbro1.dart';
+
 
 class ActivitiesScreen extends StatefulWidget {
   const ActivitiesScreen({super.key});
@@ -247,7 +250,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                   // Botón de bocina para leer el mensaje de bienvenida
                   GestureDetector(
                     onTap: () => _leerTexto(
-                      '¡Descubre tu camino al aprendizaje! Selecciona una actividad para comenzar. NyCM LPA, Programa de Alfabetización con apoyo de IA.'
+                      '¡Descubre tu camino al aprendizaje! Selecciona una actividad para comenzar. NyCM LPA, Lecciones IVEA digitalizadas.'
                     ),
                     child: Container(
                       padding: const EdgeInsets.all(8),
@@ -270,30 +273,28 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
             // Card principal habilitada - NyCM LPA
             _buildActivityCard(
               titulo: "NyCM LPA",
-              descripcion: "Programa de Alfabetización con apoyo de IA. Aprende a leer y escribir de forma interactiva y personalizada.",
+              descripcion: "Lecciones IVEA digitalizadas. Aprende a leer y escribir de forma interactiva y personalizada.",
               imagenAsset: "assets/imagenes/portada.jpg",
               habilitado: true,
               colorBorde: const Color(0xFF38b000),
+              
               onTap: () {
                 _logService.addLog(
                   type: LogType.navegacion,
-                  message: 'Actividad NyCM LPA seleccionada',
-                  details: {'actividad': 'NyCM LPA'},
+                  message: 'Actividad NyCM LPA seleccionada - Navegando a Libro Nivel 1',
+                  details: {'actividad': 'NyCM LPA', 'destino': 'HLibro1'},
                 );
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('📚 Actividad NyCM LPA - Próximamente disponible'),
-                    backgroundColor: Color(0xFF38b000),
-                  ),
+                
+                // Navegar a la pantalla del libro nivel 1
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HLibro1()),
                 );
               },
               onRead: () {
-                _leerTexto('NyCM LPA. Programa de Alfabetización con apoyo de Inteligencia Artificial. Aprende a leer y escribir de forma interactiva y personalizada.');
+                _leerTexto('NyCM LPA. Programa de Alfabetización con apoyo de Inteligencia Artificial. Lecciones IVEA digitalizadas. Aprende a leer y escribir de forma interactiva y personalizada. Contiene lecciones de vocales, sílabas y palabras completas.');
               },
             ),
-            
-            const SizedBox(height: 16),
-            
             // Card deshabilitada - Libro Alfabetizacion
             _buildActivityCard(
               titulo: "Libro Alfabetizacion",
