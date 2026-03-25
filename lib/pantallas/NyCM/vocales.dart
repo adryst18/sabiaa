@@ -13,6 +13,7 @@ class VocalesScreen extends StatefulWidget {
 class _VocalesScreenState extends State<VocalesScreen> {
   final VoiceService _voiceService = VoiceService();
   final LogService _logService = LogService();
+  bool _isLeaving = false;
 
   @override
   void initState() {
@@ -32,14 +33,6 @@ class _VocalesScreenState extends State<VocalesScreen> {
       message: 'Vocal reproducida',
       details: {'vocal': letra},
     );
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('🔊 $letra'),
-        duration: const Duration(milliseconds: 500),
-        backgroundColor: const Color(0xFF38b000),
-      ),
-    );
   }
 
   Future<void> _reproducirLasVocales() async {
@@ -49,14 +42,21 @@ class _VocalesScreenState extends State<VocalesScreen> {
       message: 'Frase "Las vocales" reproducida',
       details: {},
     );
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('🔊 Las vocales'),
-        duration: const Duration(seconds: 1),
-        backgroundColor: const Color(0xFF38b000),
-      ),
-    );
+  }
+
+  Future<void> _salirYPausarVoz() async {
+    if (!_isLeaving) {
+      _isLeaving = true;
+      await _voiceService.detener();
+      await _logService.addLog(
+        type: LogType.navegacion,
+        message: 'Regreso a ActivitiesScreen desde VocalesScreen',
+        details: {},
+      );
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    }
   }
 
   @override
@@ -69,14 +69,7 @@ class _VocalesScreenState extends State<VocalesScreen> {
         elevation: 2,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {
-            _logService.addLog(
-              type: LogType.navegacion,
-              message: 'Regreso a ActivitiesScreen desde VocalesScreen',
-              details: {},
-            );
-            Navigator.pop(context);
-          },
+          onPressed: _salirYPausarVoz,
         ),
         title: Row(
           children: [
@@ -134,260 +127,320 @@ class _VocalesScreenState extends State<VocalesScreen> {
         ),
       ),
       
-      body: Stack(
-        children: [
-          // Fondo decorativo
-          Container(
-            width: double.infinity,
-            height: double.infinity,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white,
-                  const Color(0xFFF5F5F5),
-                  const Color(0xFFE8F0FE),
-                ],
+      body: WillPopScope(
+        onWillPop: () async {
+          await _voiceService.detener();
+          await _logService.addLog(
+            type: LogType.navegacion,
+            message: 'Regreso a ActivitiesScreen desde VocalesScreen',
+            details: {},
+          );
+          return true;
+        },
+        child: Stack(
+          children: [
+            // Fondo decorativo
+            Container(
+              width: double.infinity,
+              height: double.infinity,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white,
+                    const Color(0xFFF5F5F5),
+                    const Color(0xFFE8F0FE),
+                  ],
+                ),
               ),
             ),
-          ),
-          
-          // Círculos decorativos de fondo
-          ..._buildBackgroundCircles(),
-          
-          // Botón "Las vocales" en la parte superior
-          Positioned(
-            top: 20.0,
-            left: 0,
-            right: 0,
-            child: Center(
+            
+            // Círculos decorativos de fondo
+            ..._buildBackgroundCircles(),
+            
+            // Botón "Las vocales" en la parte superior
+            Positioned(
+              top: 20.0,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: GestureDetector(
+                  onTap: _reproducirLasVocales,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 12.0),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF9252e3),
+                      borderRadius: BorderRadius.circular(40.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF9252e3).withOpacity(0.3),
+                          blurRadius: 12.0,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Text(
+                      'LAS VOCALES',
+                      style: TextStyle(
+                        fontSize: 26.0,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 2.0,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            
+            // VOCAL A - Distribuida en la zona superior izquierda
+            Positioned(
+              top: 120.0,
+              left: 30.0,
               child: GestureDetector(
-                onTap: _reproducirLasVocales,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 12.0),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF9252e3),
-                    borderRadius: BorderRadius.circular(40.0),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF9252e3).withOpacity(0.3),
-                        blurRadius: 12.0,
-                        offset: const Offset(0, 4),
+                onTap: () => _reproducirVocal('a'),
+                child: const Text(
+                  'a',
+                  style: TextStyle(
+                    fontSize: 100.0,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF38b000),
+                    shadows: [
+                      Shadow(
+                        offset: Offset(3, 3),
+                        blurRadius: 6,
+                        color: Colors.black12,
                       ),
                     ],
                   ),
+                ),
+              ),
+            ),
+            
+            // VOCAL E - Distribuida en la zona superior derecha
+            Positioned(
+              top: 100.0,
+              right: 40.0,
+              child: GestureDetector(
+                onTap: () => _reproducirVocal('e'),
+                child: const Text(
+                  'e',
+                  style: TextStyle(
+                    fontSize: 95.0,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF4ECDC4),
+                    shadows: [
+                      Shadow(
+                        offset: Offset(3, 3),
+                        blurRadius: 6,
+                        color: Colors.black12,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            
+            // VOCAL I - Distribuida en el centro izquierdo
+            Positioned(
+              top: 280.0,
+              left: 50.0,
+              child: GestureDetector(
+                onTap: () => _reproducirVocal('i'),
+                child: const Text(
+                  'i',
+                  style: TextStyle(
+                    fontSize: 90.0,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFFFFE66D),
+                    shadows: [
+                      Shadow(
+                        offset: Offset(3, 3),
+                        blurRadius: 6,
+                        color: Colors.black12,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            
+            // VOCAL O - Distribuida en el centro derecho
+            Positioned(
+              top: 260.0,
+              right: 35.0,
+              child: GestureDetector(
+                onTap: () => _reproducirVocal('o'),
+                child: const Text(
+                  'o',
+                  style: TextStyle(
+                    fontSize: 105.0,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF134074),
+                    shadows: [
+                      Shadow(
+                        offset: Offset(3, 3),
+                        blurRadius: 6,
+                        color: Colors.black12,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            
+            // VOCAL U - Distribuida en la zona inferior central
+            Positioned(
+              top: 520.0,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: GestureDetector(
+                  onTap: () => _reproducirVocal('u'),
                   child: const Text(
-                    'LAS VOCALES',
+                    'u',
                     style: TextStyle(
-                      fontSize: 26.0,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 2.0,
+                      fontSize: 110.0,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF9252e3),
+                      shadows: [
+                        Shadow(
+                          offset: Offset(3, 3),
+                          blurRadius: 6,
+                          color: Colors.black12,
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-          
-          // Letras sueltas - MÁS GRANDES Y MÁS GRUESAS
-          
-          // a - verde grande
-          Positioned(
-            top: 100.0,
-            left: 25.0,
-            child: GestureDetector(
-              onTap: () => _reproducirVocal('a'),
-              child: Text(
-                'a',
-                style: const TextStyle(
-                  fontSize: 95.0,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF38b000),
-                  shadows: [
-                    Shadow(
-                      offset: Offset(3, 3),
-                      blurRadius: 6,
-                      color: Colors.black12,
-                    ),
-                  ],
+            
+            // VOCAL A mayúscula - Distribuida en zona media izquierda para dar dinamismo
+            Positioned(
+              top: 400.0,
+              left: 120.0,
+              child: GestureDetector(
+                onTap: () => _reproducirVocal('A'),
+                child: const Text(
+                  'A',
+                  style: TextStyle(
+                    fontSize: 85.0,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFFFF6B6B),
+                    shadows: [
+                      Shadow(
+                        offset: Offset(3, 3),
+                        blurRadius: 6,
+                        color: Colors.black12,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          
-          // o - azul grande
-          Positioned(
-            top: 80.0,
-            right: 35.0,
-            child: GestureDetector(
-              onTap: () => _reproducirVocal('o'),
-              child: const Text(
-                'o',
-                style: TextStyle(
-                  fontSize: 100.0,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF134074),
-                  shadows: [
-                    Shadow(
-                      offset: Offset(3, 3),
-                      blurRadius: 6,
-                      color: Colors.black12,
-                    ),
-                  ],
+            
+            // VOCAL E mayúscula - Distribuida en zona media derecha
+            Positioned(
+              top: 380.0,
+              right: 100.0,
+              child: GestureDetector(
+                onTap: () => _reproducirVocal('E'),
+                child: const Text(
+                  'E',
+                  style: TextStyle(
+                    fontSize: 88.0,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF4ECDC4),
+                    shadows: [
+                      Shadow(
+                        offset: Offset(3, 3),
+                        blurRadius: 6,
+                        color: Colors.black12,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          
-          // o - morado
-          Positioned(
-            top: 210.0,
-            left: 15.0,
-            child: GestureDetector(
-              onTap: () => _reproducirVocal('o'),
-              child: const Text(
-                'o',
-                style: TextStyle(
-                  fontSize: 90.0,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF9252e3),
-                  shadows: [
-                    Shadow(
-                      offset: Offset(3, 3),
-                      blurRadius: 6,
-                      color: Colors.black12,
-                    ),
-                  ],
+            
+            // VOCAL I mayúscula - Distribuida en zona inferior izquierda
+            Positioned(
+              top: 620.0,
+              left: 60.0,
+              child: GestureDetector(
+                onTap: () => _reproducirVocal('I'),
+                child: const Text(
+                  'I',
+                  style: TextStyle(
+                    fontSize: 92.0,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFFFFE66D),
+                    shadows: [
+                      Shadow(
+                        offset: Offset(3, 3),
+                        blurRadius: 6,
+                        color: Colors.black12,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          
-          // A - rojo coral
-          Positioned(
-            top: 150.0,
-            right: 40.0,
-            child: GestureDetector(
-              onTap: () => _reproducirVocal('A'),
-              child: const Text(
-                'A',
-                style: TextStyle(
-                  fontSize: 105.0,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFFFF6B6B),
-                  shadows: [
-                    Shadow(
-                      offset: Offset(3, 3),
-                      blurRadius: 6,
-                      color: Colors.black12,
-                    ),
-                  ],
+            
+            // VOCAL O mayúscula - Distribuida en zona inferior derecha
+            Positioned(
+              top: 600.0,
+              right: 50.0,
+              child: GestureDetector(
+                onTap: () => _reproducirVocal('O'),
+                child: const Text(
+                  'O',
+                  style: TextStyle(
+                    fontSize: 98.0,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF134074),
+                    shadows: [
+                      Shadow(
+                        offset: Offset(3, 3),
+                        blurRadius: 6,
+                        color: Colors.black12,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          
-          // e - turquesa
-          Positioned(
-            top: 260.0,
-            left: 55.0,
-            child: GestureDetector(
-              onTap: () => _reproducirVocal('e'),
-              child: const Text(
-                'e',
-                style: TextStyle(
-                  fontSize: 85.0,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF4ECDC4),
-                  shadows: [
-                    Shadow(
-                      offset: Offset(3, 3),
-                      blurRadius: 6,
-                      color: Colors.black12,
-                    ),
-                  ],
+            
+            // VOCAL U mayúscula - Distribuida en zona central para equilibrar
+            Positioned(
+              top: 470.0,
+              left: 280.0,
+              child: GestureDetector(
+                onTap: () => _reproducirVocal('U'),
+                child: const Text(
+                  'U',
+                  style: TextStyle(
+                    fontSize: 82.0,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF9252e3),
+                    shadows: [
+                      Shadow(
+                        offset: Offset(3, 3),
+                        blurRadius: 6,
+                        color: Colors.black12,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          
-          // u - amarillo
-          Positioned(
-            top: 240.0,
-            right: 25.0,
-            child: GestureDetector(
-              onTap: () => _reproducirVocal('u'),
-              child: const Text(
-                'u',
-                style: TextStyle(
-                  fontSize: 92.0,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFFFFE66D),
-                  shadows: [
-                    Shadow(
-                      offset: Offset(3, 3),
-                      blurRadius: 6,
-                      color: Colors.black12,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          
-          // U - verde
-          Positioned(
-            top: 360.0,
-            left: 35.0,
-            child: GestureDetector(
-              onTap: () => _reproducirVocal('U'),
-              child: const Text(
-                'U',
-                style: TextStyle(
-                  fontSize: 88.0,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF38b000),
-                  shadows: [
-                    Shadow(
-                      offset: Offset(3, 3),
-                      blurRadius: 6,
-                      color: Colors.black12,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          
-          // E - azul
-          Positioned(
-            top: 400.0,
-            right: 55.0,
-            child: GestureDetector(
-              onTap: () => _reproducirVocal('E'),
-              child: const Text(
-                'E',
-                style: TextStyle(
-                  fontSize: 98.0,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF134074),
-                  shadows: [
-                    Shadow(
-                      offset: Offset(3, 3),
-                      blurRadius: 6,
-                      color: Colors.black12,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          
-          // Decoración adicional
-          ..._buildDecorations(),
-        ],
+            
+            // Decoración adicional
+            ..._buildDecorations(),
+          ],
+        ),
       ),
     );
   }
@@ -442,6 +495,18 @@ class _VocalesScreenState extends State<VocalesScreen> {
           ),
         ),
       ),
+      Positioned(
+        top: 450.0,
+        left: 200.0,
+        child: Container(
+          width: 120.0,
+          height: 120.0,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFF4ECDC4).withOpacity(0.05),
+          ),
+        ),
+      ),
     ];
   }
 
@@ -452,12 +517,15 @@ class _VocalesScreenState extends State<VocalesScreen> {
       {'top': 250.0, 'left': 10.0, 'size': 6.0},
       {'top': 350.0, 'left': 20.0, 'size': 4.0},
       {'top': 450.0, 'left': 15.0, 'size': 5.0},
-      {'top': 500.0, 'left': 35.0, 'size': 4.0},
+      {'top': 550.0, 'left': 35.0, 'size': 4.0},
+      {'top': 650.0, 'left': 25.0, 'size': 5.0},
       {'top': 130.0, 'right': 20.0, 'size': 5.0},
       {'top': 210.0, 'right': 15.0, 'size': 4.0},
       {'top': 290.0, 'right': 25.0, 'size': 6.0},
       {'top': 380.0, 'right': 30.0, 'size': 4.0},
       {'top': 470.0, 'right': 20.0, 'size': 5.0},
+      {'top': 570.0, 'right': 35.0, 'size': 4.0},
+      {'top': 660.0, 'right': 20.0, 'size': 5.0},
     ];
     
     return decorations.map((dec) {
