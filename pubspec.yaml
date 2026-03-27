@@ -30,43 +30,54 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_tts: ^4.2.5   # o la última versión estable en 2026
-  url_launcher: ^6.2.1
 
-
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
+  # UI
   cupertino_icons: ^1.0.8
+  
+  # Firebase
   firebase_core: ^4.6.0
   cloud_firestore: ^6.2.0
+  
+  # Audio y voz
+  flutter_tts: ^4.2.5
+  audioplayers: ^5.2.1
+  volume_controller: ^2.0.6
+  
+  # Networking
+  url_launcher: ^6.2.1
+  http: ^1.1.0
+  
+  # Almacenamiento
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  url_launcher: ^6.1.14
-
-  flutter_tts: ^4.2.5
-  http: ^1.1.0                # Para llamadas a API
-  audioplayers: ^5.2.1        # Para reproducir audio
-  shared_preferences: ^2.2.2  # Para guardar preferencias
-  volume_controller: ^2.0.6  # Para control de volumen
-  # The "flutter_lints" package below contains a set of recommended lints to
-  # encourage good coding practices. The lint set provided by the package is
-  # activated in the `analysis_options.yaml` file located at the root of your
-  # package. See that file for information about deactivating specific lint
-  # rules and activating additional ones.
+  
+  # Launcher icon
+  flutter_launcher_icons: ^0.13.1
+  
+  # Lints
   flutter_lints: ^6.0.0
+
+# Flutter launcher icons configuration
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/imagenes/logo.jpeg"
+  adaptive_icon_background: "#134074"
+  adaptive_icon_foreground: "assets/imagenes/logo.jpeg"
+  remove_alpha_ios: true
+  background_color_ios: "#134074"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
 # The following section is specific to Flutter packages.
 flutter:
-
-  # The following line ensures that the Material Icons font is
-  # included with your application, so that you can use the icons in
-  # the material Icons class.
   uses-material-design: true
+  
+  # Assets
   assets:
     - assets/imagenes/logo.jpeg
     - assets/imagenes/portada.jpg
@@ -82,15 +93,7 @@ flutter:
     - assets/imagenes/vocales/oma.png
     - assets/imagenes/vocales/omi.png
     - assets/imagenes/vocales/uma.png
-    - assets/imagenes/vocales/umi.png   
-
-
-
-
-
-
-
-
+    - assets/imagenes/vocales/umi.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:
