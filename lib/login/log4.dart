@@ -3,6 +3,8 @@ import 'package:sabia/pantallas/home_screen.dart';
 import 'log2.dart';
 import 'package:sabia/services/log_service.dart';
 import 'package:sabia/models/log_entry.dart';
+import 'package:sabia/pantallas/privado.dart';
+import 'package:sabia/pantallas/admin/ad1.dart';
 
 class Log4 extends StatefulWidget {
   const Log4({super.key});
@@ -21,6 +23,7 @@ class _Log4State extends State<Log4> {
   
   final List<Map<String, String>> _usuarios = [
     {'usuario': 'adricruz', 'contrasena': 'adri1Anc', 'nombre': 'Adrián Cruz'},
+    {'usuario': 'adriprofe', 'contrasena': 'adriProf4', 'nombre': 'Adrián Profesor'},
     {'usuario': 'maria_g', 'contrasena': 'Maria2024', 'nombre': 'María González'},
     {'usuario': 'carlos_m', 'contrasena': 'Carlos123', 'nombre': 'Carlos Martínez'},
   ];
@@ -336,10 +339,28 @@ class _Log4State extends State<Log4> {
         ),
       );
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
+      // Validación especial para usuarios específicos
+      if (usuario['usuario'] == 'adricruz' && usuario['contrasena'] == 'adri1Anc') {
+        // Usuario normal: va a HomeScreen
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      } 
+      else if (usuario['usuario'] == 'adriprofe' && usuario['contrasena'] == 'adriProf4') {
+        // Usuario profesor: va a PrivadoScreen (acceso restringido)
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminPanelScreen()),
+        );
+      }
+      else {
+        // Para los demás usuarios (maria_g, carlos_m) también van a HomeScreen
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      }
     }
   }
 

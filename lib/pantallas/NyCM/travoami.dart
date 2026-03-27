@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:sabia/services/voice_service.dart';
 import 'package:sabia/services/log_service.dart';
 import 'package:sabia/models/log_entry.dart';
-import 'travoami.dart';
+import 'dart:math';
 
-class TrazoAScreen extends StatefulWidget {
-  const TrazoAScreen({super.key});
+class TrazoAMinusculaScreen extends StatefulWidget {
+  const TrazoAMinusculaScreen({super.key});
 
   @override
-  State<TrazoAScreen> createState() => _TrazoAScreenState();
+  State<TrazoAMinusculaScreen> createState() => _TrazoAMinusculaScreenState();
 }
 
-class _TrazoAScreenState extends State<TrazoAScreen> with SingleTickerProviderStateMixin {
+class _TrazoAMinusculaScreenState extends State<TrazoAMinusculaScreen> with SingleTickerProviderStateMixin {
   final VoiceService _voiceService = VoiceService();
   final LogService _logService = LogService();
   
@@ -44,7 +44,7 @@ class _TrazoAScreenState extends State<TrazoAScreen> with SingleTickerProviderSt
   late AnimationController _starAnimationController;
   List<Animation<double>> _starAnimations = [];
   
-  // Puntos de referencia para la letra A mayúscula
+  // Puntos de referencia para la letra a minúscula
   List<Offset> _puntosReferencia = [];
 
   @override
@@ -60,34 +60,32 @@ class _TrazoAScreenState extends State<TrazoAScreen> with SingleTickerProviderSt
     
     _logService.addLog(
       type: LogType.navegacion,
-      message: 'Pantalla de trazado de letra A cargada',
-      details: {'pantalla': 'TrazoAScreen'},
+      message: 'Pantalla de trazado de letra a minúscula cargada',
+      details: {'pantalla': 'TrazoAMinusculaScreen'},
     );
   }
 
   void _generarPuntosReferenciaA() {
+    // Generar puntos de referencia para una a minúscula perfecta
+    // La a minúscula tiene forma de círculo con una línea vertical en el lado DERECHO, PEGADA POR FUERA
     final centerX = 150.0;
-    final topY = 50.0;
-    final bottomY = 250.0;
-    final leftX = centerX - 80.0;
-    final rightX = centerX + 80.0;
-    final crossY = 150.0;
+    final centerY = 150.0;
+    final radius = 55.0; // Reducido un poco para dar espacio al palito
+    final stemX = centerX + radius; // El palito empieza donde termina el círculo (por fuera)
+    final stemTopY = centerY - radius * 0.4; // El palito comienza más arriba
+    final stemBottomY = centerY + radius * 0.6; // El palito termina más abajo que el círculo
     
-    for (double t = 0; t <= 1; t += 0.02) {
-      double x = centerX - (t * 80);
-      double y = topY + (t * (bottomY - topY));
+    // Círculo principal (parte redonda de la a)
+    for (double angle = 0; angle <= 2 * pi; angle += 0.05) {
+      double x = centerX + radius * cos(angle);
+      double y = centerY + radius * sin(angle);
       _puntosReferencia.add(Offset(x, y));
     }
     
-    for (double t = 0; t <= 1; t += 0.02) {
-      double x = centerX + (t * 80);
-      double y = topY + (t * (bottomY - topY));
-      _puntosReferencia.add(Offset(x, y));
-    }
-    
-    for (double t = 0; t <= 1; t += 0.02) {
-      double x = leftX + 20 + (t * ((rightX - 20) - (leftX + 20)));
-      double y = crossY;
+    // Línea vertical (palo de la a) - PEGADO POR FUERA
+    for (double t = 0; t <= 1; t += 0.03) {
+      double x = stemX;
+      double y = stemTopY + t * (stemBottomY - stemTopY);
       _puntosReferencia.add(Offset(x, y));
     }
   }
@@ -144,7 +142,7 @@ class _TrazoAScreenState extends State<TrazoAScreen> with SingleTickerProviderSt
     final todosLosPuntos = _obtenerTodosLosPuntos();
     
     if (todosLosPuntos.length < 30) {
-      _voiceService.hablar('Dibuja la letra A primero. Haz uno o varios trazos para formar la letra.');
+      _voiceService.hablar('Dibuja la letra a minúscula primero. Haz uno o varios trazos para formar la letra.');
       return;
     }
     
@@ -160,7 +158,7 @@ class _TrazoAScreenState extends State<TrazoAScreen> with SingleTickerProviderSt
     
     _logService.addLog(
       type: LogType.navegacion,
-      message: 'Trazo de letra A calificado',
+      message: 'Trazo de letra a minúscula calificado',
       details: {'calificacion': calificacion, 'intentos': _intentos, 'trazos': _trazos.length},
     );
   }
@@ -322,14 +320,21 @@ class _TrazoAScreenState extends State<TrazoAScreen> with SingleTickerProviderSt
                           ),
                         ),
                         const SizedBox(width: 16),
-                       Expanded(
+                        Expanded(
                           child: ElevatedButton(
                             onPressed: () {
                               _voiceService.detener();
                               Navigator.pop(context);
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const TrazoAMinusculaScreen()),
+                              // TODO: Navegar a TrazoEScreen cuando esté disponible
+                              // Navigator.push(
+                              //   context,
+                              //   MaterialPageRoute(builder: (context) => const TrazoEScreen()),
+                              // );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Próximamente: Lección de la letra E'),
+                                  duration: Duration(seconds: 2),
+                                ),
                               );
                             },
                             style: ElevatedButton.styleFrom(
@@ -489,7 +494,7 @@ class _TrazoAScreenState extends State<TrazoAScreen> with SingleTickerProviderSt
   }
 
   String _obtenerMensajeBreve(double calificacion) {
-    if (calificacion >= 90) return '¡Perfecto! Dominas la letra A';
+    if (calificacion >= 90) return '¡Perfecto! Dominas la letra a minúscula';
     if (calificacion >= 70) return '¡Muy bien! Sigue así';
     if (calificacion >= 50) return 'Buen intento, puedes mejorar';
     if (calificacion >= 30) return 'Sigue practicando';
@@ -529,13 +534,18 @@ class _TrazoAScreenState extends State<TrazoAScreen> with SingleTickerProviderSt
     double precision = 1 - (distanciaTotal / (puntosEvaluados * 50));
     double calificacion = (precision * 0.6 + cobertura * 0.4) * 100;
     
+    // Factores adicionales para la a minúscula
     double proporcion = _verificarProporciones(puntos);
-    if (proporcion > 1.2 && proporcion < 2.0) {
+    if (proporcion > 0.8 && proporcion < 1.5) {
       calificacion *= 1.1;
-    } else if (proporcion > 1.0 && proporcion < 2.5) {
-      calificacion *= 1.0;
     } else {
       calificacion *= 0.9;
+    }
+    
+    // Verificar si tiene forma redonda
+    bool tieneFormaRedonda = _verificarFormaRedonda(puntos);
+    if (tieneFormaRedonda) {
+      calificacion *= 1.05;
     }
     
     return calificacion.clamp(0, 100);
@@ -587,6 +597,34 @@ class _TrazoAScreenState extends State<TrazoAScreen> with SingleTickerProviderSt
     return alto / ancho;
   }
 
+  bool _verificarFormaRedonda(List<Offset> puntos) {
+    if (puntos.length < 10) return false;
+    
+    double minX = double.infinity, maxX = -double.infinity;
+    double minY = double.infinity, maxY = -double.infinity;
+    
+    for (var punto in puntos) {
+      minX = punto.dx < minX ? punto.dx : minX;
+      maxX = punto.dx > maxX ? punto.dx : maxX;
+      minY = punto.dy < minY ? punto.dy : minY;
+      maxY = punto.dy > maxY ? punto.dy : maxY;
+    }
+    
+    double centerX = (minX + maxX) / 2;
+    double centerY = (minY + maxY) / 2;
+    double radioEsperado = (maxX - minX) / 2;
+    
+    int puntosEnCirculo = 0;
+    for (var punto in puntos) {
+      double distancia = _calcularDistancia(punto, Offset(centerX, centerY));
+      if (distancia <= radioEsperado * 1.2) {
+        puntosEnCirculo++;
+      }
+    }
+    
+    return puntosEnCirculo / puntos.length > 0.6;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -599,7 +637,7 @@ class _TrazoAScreenState extends State<TrazoAScreen> with SingleTickerProviderSt
           onPressed: () {
             _logService.addLog(
               type: LogType.navegacion,
-              message: 'Regreso desde pantalla de trazado',
+              message: 'Regreso desde pantalla de trazado de a minúscula',
               details: {},
             );
             Navigator.pop(context);
@@ -657,10 +695,10 @@ class _TrazoAScreenState extends State<TrazoAScreen> with SingleTickerProviderSt
                   children: [
                     const Icon(Icons.image, color: Color(0xFF38b000), size: 20),
                     const SizedBox(width: 8),
-                    const Text('Letra A mayúscula', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF134074))),
+                    const Text('Letra a minúscula', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF134074))),
                     const Spacer(),
                     GestureDetector(
-                      onTap: () => _voiceService.hablar('La letra A mayúscula se escribe con dos líneas inclinadas que se unen en la parte superior y una línea horizontal en el medio.'),
+                      onTap: () => _voiceService.hablar('La letra a minúscula se escribe con un círculo y una línea vertical pegada por fuera en el lado derecho. Comienza con un círculo y luego baja una línea recta pegada al círculo.'),
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(color: const Color(0xFF38b000).withOpacity(0.1), shape: BoxShape.circle),
@@ -681,7 +719,7 @@ class _TrazoAScreenState extends State<TrazoAScreen> with SingleTickerProviderSt
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Image.asset(
-                      'assets/imagenes/vocales/ama.png',
+                      'assets/imagenes/vocales/ami.png',
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
@@ -694,7 +732,7 @@ class _TrazoAScreenState extends State<TrazoAScreen> with SingleTickerProviderSt
                                 const SizedBox(height: 8),
                                 Text('Imagen de referencia no disponible', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                                 const SizedBox(height: 4),
-                                const Text('Letra A mayúscula', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF134074))),
+                                const Text('Letra a minúscula', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF134074))),
                               ],
                             ),
                           ),
@@ -714,9 +752,9 @@ class _TrazoAScreenState extends State<TrazoAScreen> with SingleTickerProviderSt
                       const SizedBox(width: 4),
                       Expanded(
                         child: GestureDetector(
-                          onTap: () => _voiceService.hablar('Traza la letra siguiendo la forma triangular. Puedes levantar el dedo para hacer trazos separados.'),
+                          onTap: () => _voiceService.hablar('Traza la letra a minúscula: primero dibuja un círculo y luego una línea vertical pegada por fuera en el lado derecho. Puedes levantar el dedo para hacer trazos separados.'),
                           child: const Text(
-                            'Traza la letra - puedes levantar el dedo para hacer trazos separados',
+                            'Traza la letra - primero el círculo, luego la línea vertical pegada por fuera',
                             style: TextStyle(fontSize: 11, color: Color(0xFF38b000), fontWeight: FontWeight.w500),
                             softWrap: true,
                           ),
@@ -724,7 +762,7 @@ class _TrazoAScreenState extends State<TrazoAScreen> with SingleTickerProviderSt
                       ),
                       const SizedBox(width: 4),
                       GestureDetector(
-                        onTap: () => _voiceService.hablar('Traza la letra siguiendo la forma triangular. Puedes levantar el dedo para hacer trazos separados.'),
+                        onTap: () => _voiceService.hablar('Traza la letra a minúscula: primero dibuja un círculo y luego una línea vertical pegada por fuera en el lado derecho. Puedes levantar el dedo para hacer trazos separados.'),
                         child: const Icon(Icons.volume_up, size: 14, color: Color(0xFF38b000)),
                       ),
                     ],
@@ -798,7 +836,7 @@ class _TrazoAScreenState extends State<TrazoAScreen> with SingleTickerProviderSt
                   onPanUpdate: (details) => _actualizarTrazo(details.localPosition),
                   onPanEnd: (details) => _finalizarTrazoActual(),
                   child: CustomPaint(
-                    painter: TrazoAPainter(
+                    painter: TrazoAMinusculaPainter(
                       trazos: _trazos,
                       trazoActual: _trazoActual,
                       mostrarReferencia: _mostrarReferencia,
@@ -814,9 +852,9 @@ class _TrazoAScreenState extends State<TrazoAScreen> with SingleTickerProviderSt
                                 children: [
                                   Icon(Icons.edit, size: 50, color: Colors.grey[300]),
                                   const SizedBox(height: 12),
-                                  Text('Dibuja la letra A aquí', style: TextStyle(fontSize: 14, color: Colors.grey[400])),
+                                  Text('Dibuja la letra a aquí', style: TextStyle(fontSize: 14, color: Colors.grey[400])),
                                   const SizedBox(height: 8),
-                                  Text('Puedes levantar el dedo para hacer trazos separados', 
+                                  Text('Primero el círculo, luego la línea vertical pegada por fuera', 
                                     style: TextStyle(fontSize: 12, color: Colors.grey[400]), textAlign: TextAlign.center),
                                 ],
                               ),
@@ -875,13 +913,13 @@ class _TrazoAScreenState extends State<TrazoAScreen> with SingleTickerProviderSt
   }
 }
 
-class TrazoAPainter extends CustomPainter {
+class TrazoAMinusculaPainter extends CustomPainter {
   final List<List<Offset>> trazos;
   final List<Offset> trazoActual;
   final bool mostrarReferencia;
   final Color colorTrazo;
 
-  TrazoAPainter({
+  TrazoAMinusculaPainter({
     required this.trazos,
     required this.trazoActual,
     required this.mostrarReferencia,
@@ -901,24 +939,23 @@ class TrazoAPainter extends CustomPainter {
     if (mostrarReferencia) {
       final refPaint = Paint()..color = Colors.grey.withOpacity(0.3)..strokeWidth = 3.0..style = PaintingStyle.stroke;
       final centerX = size.width / 2;
-      final topY = size.height * 0.2;
-      final bottomY = size.height * 0.8;
-      final leftX = centerX - size.width * 0.2;
-      final rightX = centerX + size.width * 0.2;
-      final crossY = size.height * 0.5;
+      final centerY = size.height / 2;
+      final radius = size.width * 0.13; // Reducido para dar espacio al palito por fuera
+      final stemX = centerX + radius; // PEGADO POR FUERA
+      final stemTopY = centerY - radius * 0.4;
+      final stemBottomY = centerY + radius * 0.6;
       
-      final path = Path();
-      path.moveTo(centerX, topY);
-      path.lineTo(leftX, bottomY);
-      path.lineTo(rightX, bottomY);
-      path.close();
-      canvas.drawPath(path, refPaint);
-      canvas.drawLine(Offset(leftX + 20, crossY), Offset(rightX - 20, crossY), refPaint);
+      // Círculo de referencia para la a minúscula
+      canvas.drawCircle(Offset(centerX, centerY), radius, refPaint);
       
+      // Línea vertical de referencia - PEGADA POR FUERA
+      canvas.drawLine(Offset(stemX, stemTopY), Offset(stemX, stemBottomY), refPaint);
+      
+      // Puntos guía
       final guidePaint = Paint()..color = Colors.grey.withOpacity(0.2)..style = PaintingStyle.fill;
-      canvas.drawCircle(Offset(centerX, topY), 6, guidePaint);
-      canvas.drawCircle(Offset(leftX, bottomY), 6, guidePaint);
-      canvas.drawCircle(Offset(rightX, bottomY), 6, guidePaint);
+      canvas.drawCircle(Offset(centerX, centerY), 6, guidePaint);
+      canvas.drawCircle(Offset(stemX, stemTopY), 6, guidePaint);
+      canvas.drawCircle(Offset(stemX, stemBottomY), 6, guidePaint);
     }
     
     final strokePaint = Paint()
@@ -936,7 +973,6 @@ class TrazoAPainter extends CustomPainter {
       }
     }
     
-    // Dibujar trazo actual de forma continua mientras el dedo se mueve
     if (trazoActual.length > 1) {
       for (int i = 0; i < trazoActual.length - 1; i++) {
         canvas.drawLine(trazoActual[i], trazoActual[i + 1], strokePaint);
@@ -951,7 +987,7 @@ class TrazoAPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant TrazoAPainter oldDelegate) {
+  bool shouldRepaint(covariant TrazoAMinusculaPainter oldDelegate) {
     return oldDelegate.trazos != trazos || 
            oldDelegate.trazoActual != trazoActual ||
            oldDelegate.colorTrazo != colorTrazo;

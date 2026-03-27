@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "19643608581",
+    "project_id": "sabia-0000",
+    "storage_bucket": "sabia-0000.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:19643608581:android:6c85f52e2ff86c5c69f66c",
+        "android_client_info": {
+          "package_name": "com.example.sabia"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB6wYZg17bGy-KlzVtxP7lsdasEEY6C3aU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
