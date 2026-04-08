@@ -20,7 +20,25 @@ class _TrazoAScreenState extends State<TrazoAScreen> with SingleTickerProviderSt
   
   // Trazo actual que se está dibujando
   List<Offset> _trazoActual = [];
-  
+  /*unescaped = '10 > 1 and 1 < 10';
+escaped = htmlEscape.convert(unescaped);
+print(escaped); // 10 &gt; 1 and 1 &lt; 
+PARA LA UI PARA MANDARLO DESDE EL CORIGO SE NECESITA EJEUTASR DSDE KA API
+EL PRIMARY L¿KRY VA A SER EL ARRAY DE DESARROLLLO PARGUMENTANDO QUE EL IMPUNT DE DESCARGA SEASE
+EL PRIMARUY AUWE QUE SE VA A  ASEU
+
+
+LOREM IMPUS
+LOREM IMPUS   
+LOREM IMPUS PARA PODER HACER UN INIT STATE CON DEV
+
+!
+INIT STATE CON DEV__>
+RUNNING STATIV VOID MAIN, ES LO PIMERO  UE SE USA, PRINCIPALMETE EN HACER O NO PODER HACER O DEAHACER
+
+
+CUATRO DATOS SON DEL DESSARROLLO ES UN AWESOME PARA LO QU SE DEBE AJCER EN EL SI P NO10*/
+
   // Control de estado
   bool _mostrarReferencia = true;
   int _intentos = 0;

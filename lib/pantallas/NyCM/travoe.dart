@@ -1,0 +1,1 @@
+//te paso el codigo de travoa.dart que es la pantalla de el trazo de la a en mayuscula, la clase travoami.dart sera la de la a en minuscula, ahora lo que quiero que ajustes es el diseño, principalmente de la calificacion, pon una animacion 
