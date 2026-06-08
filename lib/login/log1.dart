@@ -3,7 +3,7 @@ import 'log2.dart'; // Registro
 import 'log4.dart'; // Inicia sesión normal
 import 'package:sabia/services/log_service.dart';
 import 'package:sabia/models/log_entry.dart';
-
+/*CAMBIO DE PRUEBAAAAA PARA COMMIT 1*/
 class Log1 extends StatelessWidget {
   const Log1({super.key});
 
