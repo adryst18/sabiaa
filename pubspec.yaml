@@ -30,6 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+# Añade la última versión estable del widget
+  flutter_unity_widget: ^2022.2.1
 
   # UI
   cupertino_icons: ^1.0.8
