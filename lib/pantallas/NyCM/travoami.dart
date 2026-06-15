@@ -1,8 +1,24 @@
+import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:audioplayers/audioplayers.dart'; 
 import 'package:sabia/services/voice_service.dart';
 import 'package:sabia/services/log_service.dart';
 import 'package:sabia/models/log_entry.dart';
-import 'dart:math';
+import 'package:sabia/pantallas/NyCM/hlilbro1.dart'; 
+
+class ZanahoriaAnimada {
+  final Offset posicion;
+  final double rotacion;
+  final double escalaObjetivo;
+  double escalaActual = 0.0;
+
+  ZanahoriaAnimada({
+    required this.posicion,
+    required this.rotacion,
+    required this.escalaObjetivo,
+  });
+}
 
 class TrazoAMinusculaScreen extends StatefulWidget {
   const TrazoAMinusculaScreen({super.key});
@@ -11,618 +27,345 @@ class TrazoAMinusculaScreen extends StatefulWidget {
   State<TrazoAMinusculaScreen> createState() => _TrazoAMinusculaScreenState();
 }
 
-class _TrazoAMinusculaScreenState extends State<TrazoAMinusculaScreen> with SingleTickerProviderStateMixin {
+class _TrazoAMinusculaScreenState extends State<TrazoAMinusculaScreen> with TickerProviderStateMixin {
   final VoiceService _voiceService = VoiceService();
   final LogService _logService = LogService();
+  final AudioPlayer _audioPlayerTractor = AudioPlayer();
   
-  // Lista de trazos independientes (cada trazo es una lista de puntos)
   List<List<Offset>> _trazos = [];
-  
-  // Trazo actual que se está dibujando
   List<Offset> _trazoActual = [];
+  List<ZanahoriaAnimada> _huertoZanahorias = [];
   
-  // Control de estado
-  bool _mostrarReferencia = true;
-  int _intentos = 0;
-  double _calificacion = 0;
-  bool _mostrarDialogoCalificacion = false;
+  Offset? _posicionTractor;
+  double _anguloTractor = 0.0;
+  bool _estaTocandoTractor = false;
+
+  final Stopwatch _cronometro = Stopwatch();
+  int _intentosFallidos = 0;
+  bool _completadoExitosamente = false;
   
-  // Color seleccionado para el trazo
-  Color _colorTrazo = const Color(0xFF38b000);
+  double _porcentajePrecision = 0.0;
+  double _sumaPrecisionMuestras = 0.0;
+  int _totalMuestrasTomadas = 0;
+
+  late AnimationController _semillasBlinkController;
+  late AnimationController _loopZanahoriasController;
+  late AnimationController _confetiController; 
   
-  // Colores disponibles en la paleta
-  final List<Color> _coloresPaleta = [
-    const Color(0xFF38b000), // Verde
-    Colors.blue,
-    Colors.red,
-    Colors.purple,
-    Colors.orange,
-    Colors.pink,
-  ];
+  int _faseTrazoActual = 0;
+  List<Offset> _puntosReferenciaCirculo = [];
+  List<Offset> _puntosReferenciaPalito = [];
   
-  // Control de animación para las estrellas
-  late AnimationController _starAnimationController;
-  List<Animation<double>> _starAnimations = [];
-  
-  // Puntos de referencia para la letra a minúscula
-  List<Offset> _puntosReferencia = [];
+  List<bool> _cubiertosCirculo = [];
+  List<bool> _cubiertosPalito = [];
 
   @override
   void initState() {
     super.initState();
     _voiceService.init();
-    _generarPuntosReferenciaA();
+    _generarPuntosReferenciaPorPartes();
     
-    _starAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+    _semillasBlinkController = AnimationController(
       vsync: this,
+      duration: const Duration(milliseconds: 700),
+    )..repeat(reverse: true);
+
+    _loopZanahoriasController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 16),
+    )..addListener(() {
+        setState(() {
+          for (var zanahoria in _huertoZanahorias) {
+            if (zanahoria.escalaActual < zanahoria.escalaObjetivo) {
+              zanahoria.escalaActual += 0.08;
+              if (zanahoria.escalaActual > zanahoria.escalaObjetivo) {
+                zanahoria.escalaActual = zanahoria.escalaObjetivo;
+              }
+            }
+          }
+        });
+      });
+    _loopZanahoriasController.repeat();
+
+    _confetiController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
     );
-    
-    _logService.addLog(
-      type: LogType.navegacion,
-      message: 'Pantalla de trazado de letra a minúscula cargada',
-      details: {'pantalla': 'TrazoAMinusculaScreen'},
-    );
+
+    _voiceService.hablar('¡Ahora sembraremos la letra a minúscula! Sigue el círculo primero.');
   }
 
-  void _generarPuntosReferenciaA() {
-    // Generar puntos de referencia para una a minúscula perfecta
-    // La a minúscula tiene forma de círculo con una línea vertical en el lado DERECHO, PEGADA POR FUERA
-    final centerX = 150.0;
-    final centerY = 150.0;
-    final radius = 55.0; // Reducido un poco para dar espacio al palito
-    final stemX = centerX + radius; // El palito empieza donde termina el círculo (por fuera)
-    final stemTopY = centerY - radius * 0.4; // El palito comienza más arriba
-    final stemBottomY = centerY + radius * 0.6; // El palito termina más abajo que el círculo
+  @override
+  void dispose() {
+    _semillasBlinkController.dispose();
+    _loopZanahoriasController.dispose();
+    _confetiController.dispose();
+    _audioPlayerTractor.dispose();
+    _cronometro.stop();
+    super.dispose();
+  }
+
+  void _generarPuntosReferenciaPorPartes() {
+    final double centroX = 150.0;
+    final double centroY = 240.0;
+    final double radio = 75.0;
     
-    // Círculo principal (parte redonda de la a)
-    for (double angle = 0; angle <= 2 * pi; angle += 0.05) {
-      double x = centerX + radius * cos(angle);
-      double y = centerY + radius * sin(angle);
-      _puntosReferencia.add(Offset(x, y));
+    _puntosReferenciaCirculo.clear();
+    _puntosReferenciaPalito.clear();
+
+    // 1. Puntos del círculo
+    for (double i = 0; i <= 2 * math.pi; i += 0.25) {
+      double x = centroX + radio * math.cos(-i);
+      double y = centroY + radio * math.sin(-i);
+      _puntosReferenciaCirculo.add(Offset(x, y));
     }
+
+    // 2. Puntos del palito derecho
+    double palitoX = centroX + radio;
+    double inicioY = centroY - radio;
+    double finY = centroY + radio + 10;
     
-    // Línea vertical (palo de la a) - PEGADO POR FUERA
-    for (double t = 0; t <= 1; t += 0.03) {
-      double x = stemX;
-      double y = stemTopY + t * (stemBottomY - stemTopY);
-      _puntosReferencia.add(Offset(x, y));
+    for (double y = inicioY; y <= finY; y += 12.0) {
+      _puntosReferenciaPalito.add(Offset(palitoX, y));
     }
+
+    _cubiertosCirculo = List.filled(_puntosReferenciaCirculo.length, false);
+    _cubiertosPalito = List.filled(_puntosReferenciaPalito.length, false);
+    
+    _faseTrazoActual = 0; 
+    _posicionTractor = _puntosReferenciaCirculo.first;
+    
+    _porcentajePrecision = 0.0;
+    _sumaPrecisionMuestras = 0.0;
+    _totalMuestrasTomadas = 0;
+  }
+
+  Future<void> _encenderMotorTractor() async {
+    try {
+      await _audioPlayerTractor.setReleaseMode(ReleaseMode.loop);
+      await _audioPlayerTractor.play(AssetSource('sounds/tractor.mp3'));
+    } catch (e) {
+      debugPrint('Error cargando audio del tractor: $e');
+    }
+  }
+
+  Future<void> _apagarMotorTractor() async {
+    await _audioPlayerTractor.stop();
   }
 
   void _iniciarNuevoTrazo(Offset puntoInicial) {
+    if (_completadoExitosamente) return;
+    _encenderMotorTractor();
+
+    if (!_cronometro.isRunning) {
+      _cronometro.start();
+    }
+
     setState(() {
+      _estaTocandoTractor = true;
       _trazoActual = [puntoInicial];
+      _posicionTractor = puntoInicial;
     });
   }
 
-  void _actualizarTrazo(Offset punto) {
-    if (_trazoActual.isEmpty) return;
+  void _actualizarTrazo(Offset puntoActual) {
+    if (!_estaTocandoTractor || _trazoActual.isEmpty) return;
     
-    // Agregar el punto y actualizar la UI inmediatamente
-    _trazoActual.add(punto);
-    setState(() {});
+    Offset puntoAnterior = _trazoActual.last;
+    double distancia = (puntoActual - puntoAnterior).distance;
+
+    if (distancia > 6) {
+      double nuevoAngulo = math.atan2(
+        puntoActual.dy - puntoAnterior.dy,
+        puntoActual.dx - puntoAnterior.dx,
+      );
+
+      _trazoActual.add(puntoActual);
+      _evaluarPrecisionMuestraContinua(puntoActual);
+
+      if (_trazoActual.length % 3 == 0) {
+        _huertoZanahorias.add(
+          ZanahoriaAnimada(
+            posicion: puntoActual,
+            rotacion: (math.Random().nextDouble() * 0.4) - 0.2,
+            escalaObjetivo: 1.1,
+          ),
+        );
+      }
+
+      setState(() {
+        _posicionTractor = puntoActual;
+        _anguloTractor = nuevoAngulo;
+      });
+    }
+  }
+
+  void _evaluarPrecisionMuestraContinua(Offset posicionTractor) {
+    const double maxCanalSombreado = 32.0; 
+    double menorDistanciaALineaCentro = double.infinity;
+
+    for (var p in _puntosReferenciaCirculo) {
+      double d = (posicionTractor - p).distance;
+      if (d < menorDistanciaALineaCentro) menorDistanciaALineaCentro = d;
+    }
+    for (var p in _puntosReferenciaPalito) {
+      double d = (posicionTractor - p).distance;
+      if (d < menorDistanciaALineaCentro) menorDistanciaALineaCentro = d;
+    }
+
+    double precisionMuestra = 0.0;
+    // CORREGIDO: Ajustado exactamente a 10.0 de tolerancia
+    if (menorDistanciaALineaCentro <= 10.0) {
+      precisionMuestra = 100.0; 
+    } else if (menorDistanciaALineaCentro <= maxCanalSombreado) {
+      precisionMuestra = 100.0 * (1.0 - ((menorDistanciaALineaCentro - 10.0) / (maxCanalSombreado - 10.0)));
+    } else {
+      precisionMuestra = 0.0; 
+    }
+
+    _sumaPrecisionMuestras += precisionMuestra;
+    _totalMuestrasTomadas++;
+
+    if (_faseTrazoActual == 0) {
+      for (int i = 0; i < _puntosReferenciaCirculo.length; i++) {
+        if ((posicionTractor - _puntosReferenciaCirculo[i]).distance < maxCanalSombreado) {
+          _cubiertosCirculo[i] = true;
+        }
+      }
+      if (!_cubiertosCirculo.contains(false)) {
+        setState(() => _faseTrazoActual = 1); 
+        _voiceService.hablar('¡Estupendo! Ahora haz la línea recta hacia abajo.');
+      }
+    } else if (_faseTrazoActual == 1) {
+      for (int i = 0; i < _puntosReferenciaPalito.length; i++) {
+        if ((posicionTractor - _puntosReferenciaPalito[i]).distance < maxCanalSombreado) {
+          _cubiertosPalito[i] = true;
+        }
+      }
+    }
+
+    setState(() {
+      // CORREGIDO: Error de dedo corregido a '_totalMuestrasTomadas'
+      _porcentajePrecision = _totalMuestrasTomadas > 0 
+          ? (_sumaPrecisionMuestras / _totalMuestrasTomadas) 
+          : 0.0;
+    });
   }
 
   void _finalizarTrazoActual() {
-    if (_trazoActual.isNotEmpty && _trazoActual.length > 1) {
-      setState(() {
-        _trazos.add(List.from(_trazoActual));
-        _trazoActual.clear();
-      });
-    } else if (_trazoActual.isNotEmpty) {
-      setState(() {
-        _trazos.add(List.from(_trazoActual));
-        _trazoActual.clear();
-      });
-    }
-  }
-
-  void _reiniciarTrazo() {
-    setState(() {
-      _trazos.clear();
-      _trazoActual.clear();
-      _mostrarDialogoCalificacion = false;
-      _calificacion = 0;
-    });
-  }
-
-  List<Offset> _obtenerTodosLosPuntos() {
-    List<Offset> todosLosPuntos = [];
-    for (var trazo in _trazos) {
-      todosLosPuntos.addAll(trazo);
-    }
+    _apagarMotorTractor();
     if (_trazoActual.isNotEmpty) {
-      todosLosPuntos.addAll(_trazoActual);
+      setState(() {
+        _trazos.add(List.from(_trazoActual));
+        _trazoActual.clear();
+        _estaTocandoTractor = false;
+      });
+      if (!_completadoExitosamente && _porcentajePrecision < 15) {
+        _intentosFallidos++;
+      }
     }
-    return todosLosPuntos;
   }
 
-  void _evaluarTrazo() {
-    final todosLosPuntos = _obtenerTodosLosPuntos();
-    
-    if (todosLosPuntos.length < 30) {
-      _voiceService.hablar('Dibuja la letra a minúscula primero. Haz uno o varios trazos para formar la letra.');
-      return;
-    }
-    
-    double calificacion = _calcularSimilitud(todosLosPuntos);
-    
+  void _ejecutarCalificacionYVentana() {
+    _cronometro.stop();
     setState(() {
-      _calificacion = calificacion;
-      _mostrarDialogoCalificacion = true;
+      _completadoExitosamente = true;
     });
-    
-    _mostrarDialogoCalificacionConVoz(calificacion);
-    _intentos++;
-    
-    _logService.addLog(
-      type: LogType.navegacion,
-      message: 'Trazo de letra a minúscula calificado',
-      details: {'calificacion': calificacion, 'intentos': _intentos, 'trazos': _trazos.length},
-    );
-  }
 
-  void _mostrarDialogoCalificacionConVoz(double calificacion) {
-    double estrellasObtenidas = _calcularEstrellas(calificacion);
-    String mensaje = _obtenerMensajeCalificacion(calificacion, estrellasObtenidas);
-    
-    _voiceService.hablar(mensaje);
-    
-    _starAnimations.clear();
-    for (int i = 0; i < 5; i++) {
-      final animation = Tween<double>(begin: 0.0, end: 1.0).animate(
-        CurvedAnimation(
-          parent: _starAnimationController,
-          curve: Interval(i * 0.15, 1.0, curve: Curves.elasticOut),
-        ),
-      );
-      _starAnimations.add(animation);
+    int estrellasGanadas = 1;
+    if (_porcentajePrecision >= 90) {
+      estrellasGanadas = 5; 
+    } else if (_porcentajePrecision >= 75) {
+      estrellasGanadas = 4;
+    } else if (_porcentajePrecision >= 55) {
+      estrellasGanadas = 3;
+    } else if (_porcentajePrecision >= 30) {
+      estrellasGanadas = 2;
     }
-    
+
+    _confetiController.forward(from: 0.0);
+    _voiceService.hablar('¡Felicidades, lograste escribir la a minúscula!');
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      barrierColor: Colors.black.withOpacity(0.5),
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _starAnimationController.forward(from: 0.0);
-            });
-            
-            return Dialog(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: Colors.white,
+        title: const Text(
+          '¡Excelente Trabajo!', 
+          style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF134074)),
+          textAlign: TextAlign.center
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${_porcentajePrecision.toStringAsFixed(0)}% de Precisión', 
+              style: TextStyle(
+                fontSize: 22, 
+                fontWeight: FontWeight.bold, 
+                color: _porcentajePrecision >= 75 ? Colors.green : Colors.orange
+              )
+            ),
+            const SizedBox(height: 16),
+            SecuencialEstrellasWidget(cantidadEstrellas: estrellasGanadas),
+            const SizedBox(height: 16),
+            Text('Tiempo empleado: ${_cronometro.elapsed.inSeconds}s', style: const TextStyle(color: Colors.grey)),
+          ],
+        ),
+        actionsPadding: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+        actions: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              IconButton(
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.red[400],
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.all(14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TweenAnimationBuilder(
-                      tween: Tween<double>(begin: 0.0, end: 1.0),
-                      duration: const Duration(milliseconds: 500),
-                      builder: (context, value, child) {
-                        return Transform.scale(
-                          scale: value,
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF38b000).withOpacity(0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              calificacion >= 70 ? Icons.celebration : Icons.emoji_events,
-                              size: 48 * value,
-                              color: calificacion >= 70 ? const Color(0xFF38b000) : const Color(0xFFFFB74D),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      calificacion >= 70 ? '¡Excelente trabajo!' : '¡Sigue practicando!',
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF134074),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      constraints: BoxConstraints(
-                        maxWidth: MediaQuery.of(context).size.width * 0.7,
-                      ),
-                      child: Text(
-                        _obtenerMensajeBreve(calificacion),
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[600],
-                        ),
-                        textAlign: TextAlign.center,
-                        softWrap: true,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(5, (index) {
-                        return _buildAnimatedStar(
-                          index, 
-                          estrellasObtenidas, 
-                          _starAnimations.isNotEmpty && index < _starAnimations.length 
-                              ? _starAnimations[index] 
-                              : null
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 12),
-                    TweenAnimationBuilder(
-                      tween: Tween<double>(begin: 0, end: calificacion),
-                      duration: const Duration(milliseconds: 1000),
-                      builder: (context, value, child) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF134074).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            '${value.toInt()}% de precisión',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF134074),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () {
-                              _voiceService.detener();
-                              Navigator.pop(context);
-                              _reiniciarTrazo();
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFFB74D),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.refresh, size: 20),
-                                SizedBox(width: 8),
-                                Text('Reintentar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () {
-                              _voiceService.detener();
-                              Navigator.pop(context);
-                              // TODO: Navegar a TrazoEScreen cuando esté disponible
-                              // Navigator.push(
-                              //   context,
-                              //   MaterialPageRoute(builder: (context) => const TrazoEScreen()),
-                              // );
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Próximamente: Lección de la letra E'),
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF9252e3),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.arrow_forward, size: 20),
-                                SizedBox(width: 8),
-                                Text('Siguiente', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  _reiniciarTodo();
+                },
+                icon: const Icon(Icons.replay, size: 28),
               ),
-            );
-          },
-        );
-      },
+
+              IconButton(
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFFb388ff),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.all(14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const HLibro1()),
+                  );
+                },
+                icon: const Icon(Icons.home, size: 28),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildAnimatedStar(int index, double estrellasObtenidas, Animation<double>? animation) {
-    double starValue = (estrellasObtenidas - index).clamp(0.0, 1.0);
-    
-    if (animation != null) {
-      return AnimatedBuilder(
-        animation: animation,
-        builder: (context, child) {
-          double currentValue = starValue * animation.value;
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: _buildStarWithValue(currentValue),
-          );
-        },
-      );
-    } else {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: _buildStarWithValue(starValue),
-      );
-    }
-  }
-
-  Widget _buildStarWithValue(double value) {
-    if (value >= 0.95) {
-      return TweenAnimationBuilder(
-        tween: Tween<double>(begin: 0.0, end: 1.0),
-        duration: const Duration(milliseconds: 300),
-        builder: (context, scale, child) {
-          return Transform.scale(
-            scale: scale,
-            child: Stack(
-              children: [
-                Icon(Icons.star_border, size: 44, color: Colors.grey[300]),
-                ShaderMask(
-                  shaderCallback: (Rect bounds) {
-                    return const LinearGradient(
-                      colors: [Color(0xFFFFD700), Color(0xFFFFB74D)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ).createShader(bounds);
-                  },
-                  child: Icon(Icons.star, size: 44, color: Colors.white),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    } else if (value >= 0.45) {
-      return TweenAnimationBuilder(
-        tween: Tween<double>(begin: 0.0, end: 1.0),
-        duration: const Duration(milliseconds: 300),
-        builder: (context, scale, child) {
-          return Transform.scale(
-            scale: scale,
-            child: Stack(
-              children: [
-                Icon(Icons.star_border, size: 44, color: Colors.grey[300]),
-                ShaderMask(
-                  shaderCallback: (Rect bounds) {
-                    return const LinearGradient(
-                      colors: [Color(0xFFFFD700), Color(0xFFFFB74D)],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      stops: [0.0, 0.5, 0.5],
-                    ).createShader(bounds);
-                  },
-                  child: Icon(Icons.star, size: 44, color: Colors.white),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    } else {
-      return TweenAnimationBuilder(
-        tween: Tween<double>(begin: 0.0, end: 1.0),
-        duration: const Duration(milliseconds: 300),
-        builder: (context, scale, child) {
-          return Transform.scale(
-            scale: scale,
-            child: Icon(Icons.star_border, size: 44, color: Colors.grey[300]),
-          );
-        },
-      );
-    }
-  }
-
-  double _calcularEstrellas(double calificacion) {
-    if (calificacion >= 95) return 5.0;
-    if (calificacion >= 85) return 4.5;
-    if (calificacion >= 75) return 4.0;
-    if (calificacion >= 65) return 3.5;
-    if (calificacion >= 55) return 3.0;
-    if (calificacion >= 45) return 2.5;
-    if (calificacion >= 35) return 2.0;
-    if (calificacion >= 25) return 1.5;
-    if (calificacion >= 15) return 1.0;
-    if (calificacion >= 5) return 0.5;
-    return 0.0;
-  }
-
-  String _obtenerMensajeCalificacion(double calificacion, double estrellas) {
-    int estrellasEnteras = estrellas.floor();
-    String textoEstrellas = '';
-    
-    if (estrellasEnteras == 5) {
-      textoEstrellas = 'cinco estrellas';
-    } else if (estrellasEnteras == 4) {
-      textoEstrellas = estrellas >= 4.5 ? 'cuatro estrellas y media' : 'cuatro estrellas';
-    } else if (estrellasEnteras == 3) {
-      textoEstrellas = estrellas >= 3.5 ? 'tres estrellas y media' : 'tres estrellas';
-    } else if (estrellasEnteras == 2) {
-      textoEstrellas = estrellas >= 2.5 ? 'dos estrellas y media' : 'dos estrellas';
-    } else if (estrellasEnteras == 1) {
-      textoEstrellas = estrellas >= 1.5 ? 'una estrella y media' : 'una estrella';
-    } else if (estrellasEnteras == 0) {
-      textoEstrellas = estrellas >= 0.5 ? 'media estrella' : 'cero estrellas';
-    }
-    
-    return 'Felicidades obtuviste un ${calificacion.toInt()}% de acierto en tu trazo. '
-           'Obtuviste $textoEstrellas de 5. '
-           'Continúa con tu progreso, pulsa el botón amarillo de la izquierda para reintentar '
-           'o el botón morado de la derecha para continuar a la siguiente lección.';
-  }
-
-  String _obtenerMensajeBreve(double calificacion) {
-    if (calificacion >= 90) return '¡Perfecto! Dominas la letra a minúscula';
-    if (calificacion >= 70) return '¡Muy bien! Sigue así';
-    if (calificacion >= 50) return 'Buen intento, puedes mejorar';
-    if (calificacion >= 30) return 'Sigue practicando';
-    return 'Vamos, tú puedes lograrlo';
-  }
-
-  double _calcularSimilitud(List<Offset> puntos) {
-    if (_puntosReferencia.isEmpty || puntos.isEmpty) return 0;
-    
-    List<Offset> puntosNormalizados = _normalizarPuntos(puntos);
-    List<Offset> referenciasNormalizadas = _normalizarPuntos(_puntosReferencia);
-    
-    double distanciaTotal = 0;
-    int puntosEvaluados = 0;
-    
-    for (var puntoUsuario in puntosNormalizados) {
-      double minDistancia = double.infinity;
-      for (var puntoRef in referenciasNormalizadas) {
-        double distancia = _calcularDistancia(puntoUsuario, puntoRef);
-        if (distancia < minDistancia) minDistancia = distancia;
-      }
-      distanciaTotal += minDistancia;
-      puntosEvaluados++;
-    }
-    
-    int puntosCubiertos = 0;
-    for (var puntoRef in referenciasNormalizadas) {
-      double minDistancia = double.infinity;
-      for (var puntoUsuario in puntosNormalizados) {
-        double distancia = _calcularDistancia(puntoUsuario, puntoRef);
-        if (distancia < minDistancia) minDistancia = distancia;
-      }
-      if (minDistancia < 30) puntosCubiertos++;
-    }
-    
-    double cobertura = puntosCubiertos / referenciasNormalizadas.length;
-    double precision = 1 - (distanciaTotal / (puntosEvaluados * 50));
-    double calificacion = (precision * 0.6 + cobertura * 0.4) * 100;
-    
-    // Factores adicionales para la a minúscula
-    double proporcion = _verificarProporciones(puntos);
-    if (proporcion > 0.8 && proporcion < 1.5) {
-      calificacion *= 1.1;
-    } else {
-      calificacion *= 0.9;
-    }
-    
-    // Verificar si tiene forma redonda
-    bool tieneFormaRedonda = _verificarFormaRedonda(puntos);
-    if (tieneFormaRedonda) {
-      calificacion *= 1.05;
-    }
-    
-    return calificacion.clamp(0, 100);
-  }
-
-  List<Offset> _normalizarPuntos(List<Offset> puntos) {
-    if (puntos.isEmpty) return [];
-    
-    double minX = double.infinity, maxX = -double.infinity;
-    double minY = double.infinity, maxY = -double.infinity;
-    
-    for (var punto in puntos) {
-      minX = punto.dx < minX ? punto.dx : minX;
-      maxX = punto.dx > maxX ? punto.dx : maxX;
-      minY = punto.dy < minY ? punto.dy : minY;
-      maxY = punto.dy > maxY ? punto.dy : maxY;
-    }
-    
-    double ancho = maxX - minX;
-    double alto = maxY - minY;
-    
-    List<Offset> normalizados = [];
-    for (var punto in puntos) {
-      double x = ((punto.dx - minX) / ancho) * 300;
-      double y = ((punto.dy - minY) / alto) * 300;
-      normalizados.add(Offset(x, y));
-    }
-    
-    return normalizados;
-  }
-
-  double _calcularDistancia(Offset p1, Offset p2) => (p1 - p2).distance;
-
-  double _verificarProporciones(List<Offset> puntos) {
-    if (puntos.length < 2) return 0;
-    
-    double minX = double.infinity, maxX = -double.infinity;
-    double minY = double.infinity, maxY = -double.infinity;
-    
-    for (var punto in puntos) {
-      minX = punto.dx < minX ? punto.dx : minX;
-      maxX = punto.dx > maxX ? punto.dx : maxX;
-      minY = punto.dy < minY ? punto.dy : minY;
-      maxY = punto.dy > maxY ? punto.dy : maxY;
-    }
-    
-    double ancho = maxX - minX;
-    double alto = maxY - minY;
-    return alto / ancho;
-  }
-
-  bool _verificarFormaRedonda(List<Offset> puntos) {
-    if (puntos.length < 10) return false;
-    
-    double minX = double.infinity, maxX = -double.infinity;
-    double minY = double.infinity, maxY = -double.infinity;
-    
-    for (var punto in puntos) {
-      minX = punto.dx < minX ? punto.dx : minX;
-      maxX = punto.dx > maxX ? punto.dx : maxX;
-      minY = punto.dy < minY ? punto.dy : minY;
-      maxY = punto.dy > maxY ? punto.dy : maxY;
-    }
-    
-    double centerX = (minX + maxX) / 2;
-    double centerY = (minY + maxY) / 2;
-    double radioEsperado = (maxX - minX) / 2;
-    
-    int puntosEnCirculo = 0;
-    for (var punto in puntos) {
-      double distancia = _calcularDistancia(punto, Offset(centerX, centerY));
-      if (distancia <= radioEsperado * 1.2) {
-        puntosEnCirculo++;
-      }
-    }
-    
-    return puntosEnCirculo / puntos.length > 0.6;
+  void _reiniciarTodo() {
+    setState(() {
+      _trazos.clear();
+      _trazoActual.clear();
+      _huertoZanahorias.clear();
+      _completadoExitosamente = false;
+      _intentosFallidos = 0;
+      _cronometro.reset();
+      _generarPuntosReferenciaPorPartes();
+    });
   }
 
   @override
@@ -631,365 +374,381 @@ class _TrazoAMinusculaScreenState extends State<TrazoAMinusculaScreen> with Sing
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
         backgroundColor: const Color(0xFF134074),
-        elevation: 2,
+        title: const Text('SABIA - Letra a minúscula', style: TextStyle(color: Colors.white)),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {
-            _logService.addLog(
-              type: LogType.navegacion,
-              message: 'Regreso desde pantalla de trazado de a minúscula',
-              details: {},
-            );
-            Navigator.pop(context);
-          },
-        ),
-        title: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.asset(
-                'assets/imagenes/logo.jpeg',
-                height: 40,
-                width: 40,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    height: 40,
-                    width: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.school, color: Color(0xFF134074), size: 24),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('SABIA', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.2)),
-                  Text('Sistema de Alfabetización Basado en Inteligencia Artificial', 
-                    style: TextStyle(fontSize: 10, color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
-                ],
-              ),
-            ),
-          ],
+          icon: const Icon(Icons.arrow_back, color: Colors.white), 
+          onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Column(
+      body: Stack(
         children: [
-          Container(
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
-            ),
-            child: Column(
-              children: [
-                Row(
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    const Icon(Icons.image, color: Color(0xFF38b000), size: 20),
-                    const SizedBox(width: 8),
-                    const Text('Letra a minúscula', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF134074))),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => _voiceService.hablar('La letra a minúscula se escribe con un círculo y una línea vertical pegada por fuera en el lado derecho. Comienza con un círculo y luego baja una línea recta pegada al círculo.'),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: const Color(0xFF38b000).withOpacity(0.1), shape: BoxShape.circle),
-                        child: const Icon(Icons.volume_up, color: Color(0xFF38b000), size: 20),
+                    _buildLiveStatWidget(Icons.ads_click, 'Precisión Real', '${_porcentajePrecision.toStringAsFixed(0)}%', Colors.purple),
+                    _buildLiveStatWidget(Icons.refresh, 'Intentos', '$_intentosFallidos', Colors.orange),
+                  ],
+                ),
+              ),
+
+              Expanded(
+                child: Center(
+                  child: Container(
+                    width: 330,
+                    height: 440,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF99d98c),
+                      borderRadius: BorderRadius.circular(32),
+                      border: Border.all(color: const Color(0xFFd8f3dc), width: 6),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.15),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        )
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(26),
+                      child: GestureDetector(
+                        onPanStart: (details) => _iniciarNuevoTrazo(details.localPosition),
+                        onPanUpdate: (details) => _actualizarTrazo(details.localPosition),
+                        onPanEnd: (_) => _finalizarTrazoActual(),
+                        child: Stack(
+                          children: [
+                            AnimatedBuilder(
+                              animation: _semillasBlinkController,
+                              builder: (context, child) {
+                                return CustomPaint(
+                                  painter: MontessoriMinusculaPainter(
+                                    trazos: _trazos,
+                                    trazoActual: _trazoActual,
+                                    huerto: _huertoZanahorias,
+                                    refCirculo: _puntosReferenciaCirculo,
+                                    refPalito: _puntosReferenciaPalito,
+                                    cubiertosCirculo: _cubiertosCirculo,
+                                    cubiertosPalito: _cubiertosPalito,
+                                    faseActual: _faseTrazoActual,
+                                    factorParpadeo: _semillasBlinkController.value,
+                                  ),
+                                  size: Size.infinite,
+                                );
+                              },
+                            ),
+
+                            if (_posicionTractor != null)
+                              Positioned(
+                                left: _posicionTractor!.dx - 28,
+                                top: _posicionTractor!.dy - 28,
+                                child: Transform.rotate(
+                                  angle: _anguloTractor,
+                                  child: AnimatedScale(
+                                    scale: _estaTocandoTractor ? 1.3 : 1.0,
+                                    duration: const Duration(milliseconds: 120),
+                                    curve: Curves.easeOutBack,
+                                    child: Container(
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFF1E88E5),
+                                        shape: BoxShape.circle,
+                                        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)], 
+                                      ),
+                                      padding: const EdgeInsets.all(6),
+                                      child: const Icon(Icons.agriculture, size: 38, color: Colors.white),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
+                    ),
+                  ),
+                ),
+              ),
+
+              Padding(
+                padding: const EdgeInsets.only(bottom: 24.0, top: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.red[400], 
+                        foregroundColor: Colors.white, 
+                        padding: const EdgeInsets.all(14)
+                      ),
+                      onPressed: _reiniciarTodo,
+                      icon: const Icon(Icons.delete_sweep, size: 28),
+                    ),
+                    const SizedBox(width: 20),
+                    IconButton(
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.blue[600], 
+                        foregroundColor: Colors.white, 
+                        padding: const EdgeInsets.all(14)
+                      ),
+                      onPressed: _ejecutarCalificacionYVentana,
+                      icon: const Icon(Icons.fact_check, size: 28),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                Container(
-                  height: 200,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8F9FA),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE0E0E0)),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(
-                      'assets/imagenes/vocales/ami.png',
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: const Color(0xFFF0F0F0),
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.image_not_supported, size: 48, color: Colors.grey[400]),
-                                const SizedBox(height: 8),
-                                Text('Imagen de referencia no disponible', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                                const SizedBox(height: 4),
-                                const Text('Letra a minúscula', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF134074))),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(color: const Color(0xFF38b000).withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.tips_and_updates, size: 14, color: Color(0xFF38b000)),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => _voiceService.hablar('Traza la letra a minúscula: primero dibuja un círculo y luego una línea vertical pegada por fuera en el lado derecho. Puedes levantar el dedo para hacer trazos separados.'),
-                          child: const Text(
-                            'Traza la letra - primero el círculo, luego la línea vertical pegada por fuera',
-                            style: TextStyle(fontSize: 11, color: Color(0xFF38b000), fontWeight: FontWeight.w500),
-                            softWrap: true,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      GestureDetector(
-                        onTap: () => _voiceService.hablar('Traza la letra a minúscula: primero dibuja un círculo y luego una línea vertical pegada por fuera en el lado derecho. Puedes levantar el dedo para hacer trazos separados.'),
-                        child: const Icon(Icons.volume_up, size: 14, color: Color(0xFF38b000)),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                  decoration: BoxDecoration(color: const Color(0xFF134074).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                  child: Column(
-                    children: [
-                      Text('$_intentos', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF134074))),
-                      const Text('Intentos', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))],
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.palette, size: 20, color: Color(0xFF134074)),
-                      const SizedBox(width: 8),
-                      ..._coloresPaleta.map((color) {
-                        return GestureDetector(
-                          onTap: () => setState(() => _colorTrazo = color),
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 4),
-                            width: 30,
-                            height: 30,
-                            decoration: BoxDecoration(
-                              color: color,
-                              shape: BoxShape.circle,
-                              border: _colorTrazo == color ? Border.all(color: Colors.white, width: 3) : null,
-                              boxShadow: _colorTrazo == color ? [BoxShadow(color: color.withOpacity(0.5), blurRadius: 8, spreadRadius: 2)] : null,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
-                border: Border.all(color: const Color(0xFFE0E0E0)),
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: GestureDetector(
-                  onPanStart: (details) => _iniciarNuevoTrazo(details.localPosition),
-                  onPanUpdate: (details) => _actualizarTrazo(details.localPosition),
-                  onPanEnd: (details) => _finalizarTrazoActual(),
-                  child: CustomPaint(
-                    painter: TrazoAMinusculaPainter(
-                      trazos: _trazos,
-                      trazoActual: _trazoActual,
-                      mostrarReferencia: _mostrarReferencia,
-                      colorTrazo: _colorTrazo,
-                    ),
-                    child: Container(
-                      width: double.infinity,
-                      height: double.infinity,
-                      child: (_trazos.isEmpty && _trazoActual.isEmpty)
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.edit, size: 50, color: Colors.grey[300]),
-                                  const SizedBox(height: 12),
-                                  Text('Dibuja la letra a aquí', style: TextStyle(fontSize: 14, color: Colors.grey[400])),
-                                  const SizedBox(height: 8),
-                                  Text('Primero el círculo, luego la línea vertical pegada por fuera', 
-                                    style: TextStyle(fontSize: 12, color: Colors.grey[400]), textAlign: TextAlign.center),
-                                ],
-                              ),
-                            )
-                          : null,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            ],
           ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _reiniciarTrazo,
-                    icon: const Icon(Icons.refresh, size: 20),
-                    label: const Text('Reiniciar'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF134074),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      side: const BorderSide(color: Color(0xFF134074)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _evaluarTrazo,
-                    icon: const Icon(Icons.check_circle, color: Colors.white),
-                    label: const Text('Calificar'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF38b000),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                  ),
-                ),
-              ],
+
+          IgnorePointer(
+            child: AnimatedBuilder(
+              animation: _confetiController,
+              builder: (context, child) {
+                if (!_confetiController.isAnimating) return const SizedBox.shrink();
+                return CustomPaint(
+                  painter: ConfetiPainter(progreso: _confetiController.value),
+                  size: Size.infinite,
+                );
+              },
             ),
-          ),
+          )
         ],
       ),
     );
   }
 
-  @override
-  void dispose() {
-    _starAnimationController.dispose();
-    _voiceService.detener();
-    super.dispose();
+  Widget _buildLiveStatWidget(IconData icon, String title, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          )
+        ],
+      ),
+    );
   }
 }
 
-class TrazoAMinusculaPainter extends CustomPainter {
+class MontessoriMinusculaPainter extends CustomPainter {
   final List<List<Offset>> trazos;
   final List<Offset> trazoActual;
-  final bool mostrarReferencia;
-  final Color colorTrazo;
+  final List<ZanahoriaAnimada> huerto;
+  
+  final List<Offset> refCirculo;
+  final List<Offset> refPalito;
+  
+  final List<bool> cubiertosCirculo;
+  final List<bool> cubiertosPalito;
+  
+  final int faseActual;
+  final double factorParpadeo;
 
-  TrazoAMinusculaPainter({
+  MontessoriMinusculaPainter({
     required this.trazos,
     required this.trazoActual,
-    required this.mostrarReferencia,
-    required this.colorTrazo,
+    required this.huerto,
+    required this.refCirculo,
+    required this.refPalito,
+    required this.cubiertosCirculo,
+    required this.cubiertosPalito,
+    required this.faseActual,
+    required this.factorParpadeo,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), Paint()..color = Colors.white);
-    
-    final gridPaint = Paint()..color = Colors.grey.withOpacity(0.15)..strokeWidth = 1.0;
-    for (double i = 0; i < size.width; i += 25) {
-      canvas.drawLine(Offset(i, 0), Offset(i, size.height), gridPaint);
-      canvas.drawLine(Offset(0, i), Offset(size.width, i), gridPaint);
-    }
-    
-    if (mostrarReferencia) {
-      final refPaint = Paint()..color = Colors.grey.withOpacity(0.3)..strokeWidth = 3.0..style = PaintingStyle.stroke;
-      final centerX = size.width / 2;
-      final centerY = size.height / 2;
-      final radius = size.width * 0.13; // Reducido para dar espacio al palito por fuera
-      final stemX = centerX + radius; // PEGADO POR FUERA
-      final stemTopY = centerY - radius * 0.4;
-      final stemBottomY = centerY + radius * 0.6;
-      
-      // Círculo de referencia para la a minúscula
-      canvas.drawCircle(Offset(centerX, centerY), radius, refPaint);
-      
-      // Línea vertical de referencia - PEGADA POR FUERA
-      canvas.drawLine(Offset(stemX, stemTopY), Offset(stemX, stemBottomY), refPaint);
-      
-      // Puntos guía
-      final guidePaint = Paint()..color = Colors.grey.withOpacity(0.2)..style = PaintingStyle.fill;
-      canvas.drawCircle(Offset(centerX, centerY), 6, guidePaint);
-      canvas.drawCircle(Offset(stemX, stemTopY), 6, guidePaint);
-      canvas.drawCircle(Offset(stemX, stemBottomY), 6, guidePaint);
-    }
-    
-    final strokePaint = Paint()
-      ..color = colorTrazo
-      ..strokeWidth = 12.0
+    final double centroX = 150.0;
+    final double centroY = 240.0;
+    final double radio = 75.0;
+
+    final shadowPaint = Paint()
+      ..color = const Color(0xFF55a644)
+      ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
-    
-    for (final trazo in trazos) {
+      ..strokeWidth = 64.0; 
+
+    final letterPaint = Paint()
+      ..color = const Color(0xFFb7e4c7)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..strokeWidth = 50.0;
+
+    final pathCirculo = Path()
+      ..addOval(Rect.fromCircle(center: Offset(centroX, centroY), radius: radio));
+
+    final pathPalito = Path()
+      ..moveTo(centroX + radio, centroY - radio)
+      ..lineTo(centroX + radio, centroY + radio + 10);
+
+    canvas.drawPath(pathCirculo, shadowPaint);
+    canvas.drawPath(pathPalito, shadowPaint);
+    canvas.drawPath(pathCirculo, letterPaint);
+    canvas.drawPath(pathPalito, letterPaint);
+
+    final paintTierra = Paint()
+      ..color = const Color(0xFF4a3319)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..strokeWidth = 44.0;
+
+    for (var trazo in trazos) {
       if (trazo.length > 1) {
-        for (int i = 0; i < trazo.length - 1; i++) {
-          canvas.drawLine(trazo[i], trazo[i + 1], strokePaint);
+        final path = Path()..moveTo(trazo.first.dx, trazo.first.dy);
+        for (int i = 1; i < trazo.length; i++) {
+          path.lineTo(trazo[i].dx, trazo[i].dy);
         }
+        canvas.drawPath(path, paintTierra);
       }
     }
-    
+
     if (trazoActual.length > 1) {
-      for (int i = 0; i < trazoActual.length - 1; i++) {
-        canvas.drawLine(trazoActual[i], trazoActual[i + 1], strokePaint);
+      final pathActual = Path()..moveTo(trazoActual.first.dx, trazoActual.first.dy);
+      for (int i = 1; i < trazoActual.length; i++) {
+        pathActual.lineTo(trazoActual[i].dx, trazoActual[i].dy);
+      }
+      canvas.drawPath(pathActual, paintTierra);
+    }
+
+    final paintSemilla = Paint()
+      ..color = const Color(0xFFFFEE58).withOpacity(0.4 + (factorParpadeo * 0.6))
+      ..style = PaintingStyle.fill;
+
+    if (faseActual == 0) {
+      for (int i = 0; i < refCirculo.length; i++) {
+        if (!cubiertosCirculo[i]) canvas.drawCircle(refCirculo[i], 5.0 + (factorParpadeo * 3), paintSemilla);
+      }
+    } else if (faseActual == 1) {
+      for (int i = 0; i < refPalito.length; i++) {
+        if (!cubiertosPalito[i]) canvas.drawCircle(refPalito[i], 5.0 + (factorParpadeo * 3), paintSemilla);
       }
     }
-    
-    final startPaint = Paint()..color = colorTrazo.withOpacity(0.7)..style = PaintingStyle.fill;
-    for (final trazo in trazos) {
-      if (trazo.isNotEmpty) canvas.drawCircle(trazo.first, 6, startPaint);
+
+    for (var zanahoria in huerto) {
+      if (zanahoria.escalaActual > 0.05) {
+        canvas.save();
+        canvas.translate(zanahoria.posicion.dx, zanahoria.posicion.dy);
+        canvas.rotate(zanahoria.rotacion);
+        canvas.scale(zanahoria.escalaActual);
+
+        final textPainter = TextPainter(
+          text: const TextSpan(text: '🥕', style: TextStyle(fontSize: 24)),
+          textDirection: TextDirection.ltr,
+        )..layout();
+
+        textPainter.paint(canvas, Offset(-textPainter.width / 2, -textPainter.height / 2));
+        canvas.restore();
+      }
     }
-    if (trazoActual.isNotEmpty) canvas.drawCircle(trazoActual.first, 6, startPaint);
   }
 
   @override
-  bool shouldRepaint(covariant TrazoAMinusculaPainter oldDelegate) {
-    return oldDelegate.trazos != trazos || 
-           oldDelegate.trazoActual != trazoActual ||
-           oldDelegate.colorTrazo != colorTrazo;
+  bool shouldRepaint(covariant MontessoriMinusculaPainter oldDelegate) => true;
+}
+
+class ConfetiPainter extends CustomPainter {
+  final double progreso;
+  ConfetiPainter({required this.progreso});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final random = math.Random(12345);
+    final paintStar = Paint()..style = PaintingStyle.fill;
+
+    for (int i = 0; i < 30; i++) {
+      double startX = size.width / 2;
+      double startY = size.height / 2;
+      
+      double angulo = random.nextDouble() * 2 * math.pi;
+      double velocidad = 80.0 + random.nextDouble() * 150.0;
+      
+      double currentX = startX + math.cos(angulo) * velocidad * progreso;
+      double currentY = startY + math.sin(angulo) * velocidad * progreso + (progreso * progreso * 60.0); 
+
+      paintStar.color = Colors.primaries[random.nextInt(Colors.primaries.length)].withOpacity(1.0 - progreso);
+      canvas.drawCircle(Offset(currentX, currentY), 6.0 * (1.0 - progreso), paintStar);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant ConfetiPainter oldDelegate) => true;
+}
+
+class SecuencialEstrellasWidget extends StatefulWidget {
+  final int cantidadEstrellas;
+  const SecuencialEstrellasWidget({super.key, required this.cantidadEstrellas});
+
+  @override
+  State<SecuencialEstrellasWidget> createState() => _SecuencialEstrellasWidgetState();
+}
+
+class _SecuencialEstrellasWidgetState extends State<SecuencialEstrellasWidget> {
+  final List<double> _escalasEstrellas = [0.0, 0.0, 0.0, 0.0, 0.0];
+  final AudioPlayer _audioPlayerEfecto = AudioPlayer();
+
+  @override
+  void initState() {
+    super.initState();
+    _reproducirEstrellasConRetraso();
+  }
+
+  @override
+  void dispose() {
+    _audioPlayerEfecto.dispose();
+    super.dispose();
+  }
+
+  void _reproducirEstrellasConRetraso() async {
+    for (int i = 0; i < 5; i++) {
+      await Future.delayed(const Duration(milliseconds: 400));
+      if (!mounted) return;
+      
+      setState(() {
+        _escalasEstrellas[i] = 1.0;
+      });
+
+      if (i < widget.cantidadEstrellas) {
+        try {
+          await _audioPlayerEfecto.play(AssetSource('sounds/bien.mp3'), mode: PlayerMode.lowLatency);
+        } catch (e) {
+          debugPrint('Error reproduciendo sonido bien.mp3: $e');
+        }
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(5, (index) {
+        bool esGanada = index < widget.cantidadEstrellas;
+        return AnimatedScale(
+          scale: _escalasEstrellas[index],
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.bounceOut, 
+          child: Icon(
+            Icons.star,
+            color: esGanada ? Colors.amber : Colors.grey[300],
+            size: 44,
+          ),
+        );
+      }),
+    );
   }
 }
