@@ -30,8 +30,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-# Añade la última versión estable del widget
-  flutter_unity_widget: ^2022.2.1
 
   # UI
   cupertino_icons: ^1.0.8
@@ -96,6 +94,10 @@ flutter:
     - assets/imagenes/vocales/omi.png
     - assets/imagenes/vocales/uma.png
     - assets/imagenes/vocales/umi.png
+
+    - assets/sounds/tractor.mp3
+    - assets/sounds/bien.mp3
+
 
   # To add assets to your application, add an assets section, like this:
   # assets:

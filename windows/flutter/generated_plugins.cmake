@@ -7,7 +7,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   cloud_firestore
   firebase_core
   flutter_tts
-  flutter_unity_widget
   url_launcher_windows
 )
 
