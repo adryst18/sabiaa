@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:audioplayers/audioplayers.dart'; // Control de audio para tractor y éxito
+import 'package:audioplayers/audioplayers.dart'; 
 import 'package:sabia/services/voice_service.dart';
 import 'package:sabia/services/log_service.dart';
 import 'package:sabia/models/log_entry.dart';
@@ -45,12 +45,10 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
   int _intentosFallidos = 0;
   bool _completadoExitosamente = false;
   
-  // Nuevas variables para el cálculo acumulativo y continuo de precisión real
   double _porcentajePrecision = 0.0;
   double _sumaPrecisionMuestras = 0.0;
   int _totalMuestrasTomadas = 0;
 
-  // Controladores de Animación Guía y Celebración
   late AnimationController _semillasBlinkController;
   late AnimationController _loopZanahoriasController;
   late AnimationController _confetiController; 
@@ -202,12 +200,11 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
     }
   }
 
-  // NUEVA LÓGICA CONTINUA: Mide en tiempo real la desviación matemática del trazo del niño
   void _evaluarPrecisionMuestraContinua(Offset posicionTractor) {
-    const double maxCanalSombreado = 27.0; // Radio del strokeWidth de 54.0
+    // NUEVO: El radio del sombreado ahora es 32.0 (porque el strokeWidth subió a 64.0)
+    const double maxCanalSombreado = 32.0; 
     double menorDistanciaALineaCentro = double.infinity;
 
-    // Buscar cuál es el punto central teórico más cercano a donde está el tractor actualmente
     for (var p in _puntosReferenciaIzquierda) {
       double d = (posicionTractor - p).distance;
       if (d < menorDistanciaALineaCentro) menorDistanciaALineaCentro = d;
@@ -221,21 +218,20 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
       if (d < menorDistanciaALineaCentro) menorDistanciaALineaCentro = d;
     }
 
-    // Calcular score de esta muestra específica
     double precisionMuestra = 0.0;
-    if (menorDistanciaALineaCentro <= 7.0) {
-      precisionMuestra = 100.0; // Casi perfecto en el medio de la guía
+    // AJUSTE: Más tolerancia en el centro (14px) para compensar el grosor del dedo real
+    if (menorDistanciaALineaCentro <= 10.0) {
+      precisionMuestra = 100.0; 
     } else if (menorDistanciaALineaCentro <= maxCanalSombreado) {
-      // Va disminuyendo linealmente a medida que se desplaza hacia los bordes de la sombra
-      precisionMuestra = 100.0 * (1.0 - (menorDistanciaALineaCentro / maxCanalSombreado));
+      // Degradado suave y justo hacia las orillas del nuevo camino ancho
+      precisionMuestra = 100.0 * (1.0 - ((menorDistanciaALineaCentro - 14.0) / (maxCanalSombreado - 14.0)));
     } else {
-      precisionMuestra = 0.0; // Completamente fuera del canal sombreado
+      precisionMuestra = 0.0; 
     }
 
     _sumaPrecisionMuestras += precisionMuestra;
     _totalMuestrasTomadas++;
 
-    // Control visual de las semillas guía (avances de fase)
     if (_faseTrazoActual == 0) {
       for (int i = 0; i < _puntosReferenciaIzquierda.length; i++) {
         if ((posicionTractor - _puntosReferenciaIzquierda[i]).distance < maxCanalSombreado) {
@@ -292,8 +288,8 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
     });
 
     int estrellasGanadas = 1;
-    if (_porcentajePrecision >= 92) {
-      estrellasGanadas = 5; // Reservado exclusivamente para trazos impecables
+    if (_porcentajePrecision >= 90) {
+      estrellasGanadas = 5; 
     } else if (_porcentajePrecision >= 75) {
       estrellasGanadas = 4;
     } else if (_porcentajePrecision >= 55) {
@@ -676,19 +672,21 @@ class MontessoriPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // MODIFICADO: Sombreado más grueso de 54.0 a 64.0 píxeles para mayor comodidad del dedo
     final shadowPaint = Paint()
       ..color = const Color(0xFF55a644)
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
-      ..strokeWidth = 54.0;
+      ..strokeWidth = 64.0;
 
+    // MODIFICADO: Letra interna escalada de 44.0 a 50.0 píxeles proporcionalmente
     final letterPaint = Paint()
       ..color = const Color(0xFFb7e4c7)
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
-      ..strokeWidth = 44.0;
+      ..strokeWidth = 50.0;
 
     final pathLetra = Path()
       ..moveTo(165.0, 60.0)
@@ -705,12 +703,13 @@ class MontessoriPainter extends CustomPainter {
     canvas.drawPath(pathLetra, letterPaint);
     canvas.drawPath(pathBarra, letterPaint);
 
+    // El trazo de tierra (marrón) mantiene un tamaño balanceado para verse dentro del camino verde
     final paintTierra = Paint()
       ..color = const Color(0xFF4a3319)
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
-      ..strokeWidth = 40.0;
+      ..strokeWidth = 44.0;
 
     for (var trazo in trazos) {
       if (trazo.length > 1) {
