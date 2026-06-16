@@ -6,6 +6,7 @@ import 'package:sabia/services/voice_service.dart';
 import 'package:sabia/services/log_service.dart';
 import 'package:sabia/models/log_entry.dart';
 import 'package:sabia/pantallas/NyCM/hlilbro1.dart'; 
+import 'package:sabia/pantallas/NyCM/travoe.dart';
 
 class ZanahoriaAnimada {
   final Offset posicion;
@@ -348,6 +349,22 @@ class _TrazoAMinusculaScreenState extends State<TrazoAMinusculaScreen> with Tick
                   );
                 },
                 icon: const Icon(Icons.home, size: 28),
+              ),
+               IconButton(
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFF4caf50),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.all(14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const TrazoEScreen())
+                  );
+                },
+                icon: const Icon(Icons.arrow_forward, size: 28),
               ),
             ],
           ),

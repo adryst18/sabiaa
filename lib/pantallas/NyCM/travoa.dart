@@ -220,7 +220,7 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
 
     double precisionMuestra = 0.0;
     // AJUSTE: Más tolerancia en el centro (14px) para compensar el grosor del dedo real
-    if (menorDistanciaALineaCentro <= 10.0) {
+    if (menorDistanciaALineaCentro <= 14.0) {
       precisionMuestra = 100.0; 
     } else if (menorDistanciaALineaCentro <= maxCanalSombreado) {
       // Degradado suave y justo hacia las orillas del nuevo camino ancho
