@@ -97,6 +97,9 @@ flutter:
 
     - assets/sounds/tractor.mp3
     - assets/sounds/bien.mp3
+    - assets/sounds/e.mp3
+    - assets/sounds/abeja.mp3
+
 
 
   # To add assets to your application, add an assets section, like this:

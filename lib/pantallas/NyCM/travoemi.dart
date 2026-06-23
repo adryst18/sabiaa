@@ -53,7 +53,6 @@ class _TrazoEMinusculaScreenState extends State<TrazoEMinusculaScreen> with Tick
 
   late AnimationController _semillasBlinkController;
   late AnimationController _loopTomatesController;
-  late AnimationController _confetiController; 
   
   int _faseTrazoActual = 0;
   
@@ -91,11 +90,6 @@ class _TrazoEMinusculaScreenState extends State<TrazoEMinusculaScreen> with Tick
       });
     _loopTomatesController.repeat();
 
-    _confetiController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    );
-
     _voiceService.hablar('¡Conduce el tractor siguiendo el orden de las semillas amarillas!');
   }
 
@@ -103,7 +97,6 @@ class _TrazoEMinusculaScreenState extends State<TrazoEMinusculaScreen> with Tick
   void dispose() {
     _semillasBlinkController.dispose();
     _loopTomatesController.dispose();
-    _confetiController.dispose();
     _audioPlayerTractor.dispose();
     _audioPlayerLetra.dispose();
     _cronometro.stop();
@@ -225,10 +218,11 @@ class _TrazoEMinusculaScreenState extends State<TrazoEMinusculaScreen> with Tick
     }
 
     double precisionMuestra = 0.0;
+    // CORREGIDO: Ajustado exactamente a 10.0 de tolerancia (igual que la A)
     if (menorDistanciaALineaCentro <= 10.0) {
       precisionMuestra = 100.0; 
     } else if (menorDistanciaALineaCentro <= maxCanalSombreado) {
-      precisionMuestra = 100.0 * (1.0 - ((menorDistanciaALineaCentro - 14.0) / (maxCanalSombreado - 14.0)));
+      precisionMuestra = 100.0 * (1.0 - ((menorDistanciaALineaCentro - 10.0) / (maxCanalSombreado - 10.0)));
     } else {
       precisionMuestra = 0.0; 
     }
@@ -255,10 +249,9 @@ class _TrazoEMinusculaScreenState extends State<TrazoEMinusculaScreen> with Tick
     }
 
     setState(() {
-      double calculoRudo = _totalMuestrasTomadas > 0 
+      _porcentajePrecision = _totalMuestrasTomadas > 0 
           ? (_sumaPrecisionMuestras / _totalMuestrasTomadas) 
           : 0.0;
-      _porcentajePrecision = calculoRudo.clamp(0.0, 100.0); // No pasa de 100%
     });
   }
 
@@ -293,9 +286,8 @@ class _TrazoEMinusculaScreenState extends State<TrazoEMinusculaScreen> with Tick
       estrellasGanadas = 2;
     }
 
-    _confetiController.forward(from: 0.0);
     _reproducirSonidoLetra();
-    _voiceService.hablar('e, que se pronuncia "eee"');
+    _voiceService.hablar('¡Felicidades, lograste escribir la e minúscula!');
 
     showDialog(
       context: context,
@@ -304,7 +296,7 @@ class _TrazoEMinusculaScreenState extends State<TrazoEMinusculaScreen> with Tick
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         backgroundColor: Colors.white,
         title: const Text(
-          'Resultado del Trazo', 
+          '¡Excelente Trabajo!', 
           style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF134074)),
           textAlign: TextAlign.center
         ),
@@ -413,138 +405,121 @@ class _TrazoEMinusculaScreenState extends State<TrazoEMinusculaScreen> with Tick
           },
         ),
       ),
-      body: Stack(
+      body: Column(
         children: [
-          Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildLiveStatWidget(Icons.ads_click, 'Precisión Real', '${_porcentajePrecision.toStringAsFixed(0)}%', Colors.purple),
-                    _buildLiveStatWidget(Icons.refresh, 'Intentos', '$_intentosFallidos', Colors.orange),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildLiveStatWidget(Icons.ads_click, 'Precisión Real', '${_porcentajePrecision.toStringAsFixed(0)}%', Colors.purple),
+                _buildLiveStatWidget(Icons.refresh, 'Intentos', '$_intentosFallidos', Colors.orange),
+              ],
+            ),
+          ),
+
+          Expanded(
+            child: Center(
+              child: Container(
+                width: 330,
+                height: 440,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF99d98c),
+                  borderRadius: BorderRadius.circular(32),
+                  border: Border.all(color: const Color(0xFFd8f3dc), width: 6),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    )
                   ],
                 ),
-              ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(26),
+                  child: GestureDetector(
+                    onPanStart: (details) => _iniciarNuevoTrazo(details.localPosition),
+                    onPanUpdate: (details) => _actualizarTrazo(details.localPosition),
+                    onPanEnd: (_) => _finalizarTrazoActual(),
+                    child: Stack(
+                      children: [
+                        AnimatedBuilder(
+                          animation: _semillasBlinkController,
+                          builder: (context, child) {
+                            return CustomPaint(
+                              painter: _MontessoriPainter(
+                                trazos: _trazos,
+                                trazoActual: _trazoActual,
+                                huerto: _huertoTomates,
+                                refRecta: _puntosReferenciaRecta,
+                                refCurva: _puntosReferenciaCurva,
+                                cubiertosRecta: _cubiertosRecta,
+                                cubiertosCurva: _cubiertosCurva,
+                                faseActual: _faseTrazoActual,
+                                factorParpadeo: _semillasBlinkController.value,
+                              ),
+                              size: Size.infinite,
+                            );
+                          },
+                        ),
 
-              Expanded(
-                child: Center(
-                  child: Container(
-                    width: 330,
-                    height: 440,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF99d98c),
-                      borderRadius: BorderRadius.circular(32),
-                      border: Border.all(color: const Color(0xFFd8f3dc), width: 6),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
-                          blurRadius: 12,
-                          offset: const Offset(0, 6),
-                        )
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(26),
-                      child: GestureDetector(
-                        onPanStart: (details) => _iniciarNuevoTrazo(details.localPosition),
-                        onPanUpdate: (details) => _actualizarTrazo(details.localPosition),
-                        onPanEnd: (_) => _finalizarTrazoActual(),
-                        child: Stack(
-                          children: [
-                            AnimatedBuilder(
-                              animation: _semillasBlinkController,
-                              builder: (context, child) {
-                                return CustomPaint(
-                                  painter: _MontessoriPainter(
-                                    trazos: _trazos,
-                                    trazoActual: _trazoActual,
-                                    huerto: _huertoTomates,
-                                    refRecta: _puntosReferenciaRecta,
-                                    refCurva: _puntosReferenciaCurva,
-                                    cubiertosRecta: _cubiertosRecta,
-                                    cubiertosCurva: _cubiertosCurva,
-                                    faseActual: _faseTrazoActual,
-                                    factorParpadeo: _semillasBlinkController.value,
+                        if (_posicionTractor != null)
+                          Positioned(
+                            left: _posicionTractor!.dx - 28,
+                            top: _posicionTractor!.dy - 28,
+                            child: Transform.rotate(
+                              angle: _anguloTractor,
+                              child: AnimatedScale(
+                                scale: _estaTocandoTractor ? 1.3 : 1.0,
+                                duration: const Duration(milliseconds: 120),
+                                curve: Curves.easeOutBack,
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF1E88E5),
+                                    shape: BoxShape.circle,
+                                    boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)], 
                                   ),
-                                  size: Size.infinite,
-                                );
-                              },
-                            ),
-
-                            if (_posicionTractor != null)
-                              Positioned(
-                                left: _posicionTractor!.dx - 28,
-                                top: _posicionTractor!.dy - 28,
-                                child: Transform.rotate(
-                                  angle: _anguloTractor,
-                                  child: AnimatedScale(
-                                    scale: _estaTocandoTractor ? 1.3 : 1.0,
-                                    duration: const Duration(milliseconds: 120),
-                                    curve: Curves.easeOutBack,
-                                    child: Container(
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFF1E88E5),
-                                        shape: BoxShape.circle,
-                                        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)], 
-                                      ),
-                                      padding: const EdgeInsets.all(6),
-                                      child: const Icon(Icons.agriculture, size: 38, color: Colors.white),
-                                    ),
-                                  ),
+                                  padding: const EdgeInsets.all(6),
+                                  child: const Icon(Icons.agriculture, size: 38, color: Colors.white),
                                 ),
                               ),
-                          ],
-                        ),
-                      ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
               ),
-
-            Padding(
-                padding: const EdgeInsets.only(bottom: 24.0, top: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center, // <-- Corregido aquí
-                  children: [
-                    IconButton(
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.red[400], 
-                        foregroundColor: Colors.white, 
-                        padding: const EdgeInsets.all(14)
-                      ),
-                      onPressed: _reiniciarTodo,
-                      icon: const Icon(Icons.delete_sweep, size: 28),
-                    ),
-                    const SizedBox(width: 20),
-                    IconButton(
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.blue[600], 
-                        foregroundColor: Colors.white, 
-                        padding: const EdgeInsets.all(14)
-                      ),
-                      onPressed: _ejecutarCalificacionYVentana,
-                      icon: const Icon(Icons.fact_check, size: 28),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
 
-          IgnorePointer(
-            child: AnimatedBuilder(
-              animation: _confetiController,
-              builder: (context, child) {
-                if (!_confetiController.isAnimating) return const SizedBox.shrink();
-                return CustomPaint(
-                  painter: _ConfetiPainter(progreso: _confetiController.value),
-                  size: Size.infinite,
-                );
-              },
+          Padding(
+            padding: const EdgeInsets.only(bottom: 24.0, top: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.red[400], 
+                    foregroundColor: Colors.white, 
+                    padding: const EdgeInsets.all(14)
+                  ),
+                  onPressed: _reiniciarTodo,
+                  icon: const Icon(Icons.delete_sweep, size: 28),
+                ),
+                const SizedBox(width: 20),
+                IconButton(
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.blue[600], 
+                    foregroundColor: Colors.white, 
+                    padding: const EdgeInsets.all(14)
+                  ),
+                  onPressed: _ejecutarCalificacionYVentana,
+                  icon: const Icon(Icons.fact_check, size: 28),
+                ),
+              ],
             ),
-          )
+          ),
         ],
       ),
     );
@@ -694,102 +669,47 @@ class _MontessoriPainter extends CustomPainter {
   bool shouldRepaint(covariant _MontessoriPainter oldDelegate) => true;
 }
 
-class _ConfetiPainter extends CustomPainter {
-  final double progreso;
-  final List<_ParticulaConfeti> particulas;
-
-  _ConfetiPainter({required this.progreso})
-      : particulas = List.generate(40, (i) {
-          final random = math.Random(i);
-          return _ParticulaConfeti(
-            color: HSVColor.fromAHSV(1.0, random.nextDouble() * 360, 0.8, 0.9).toColor(),
-            anguloInicial: random.nextDouble() * math.pi * 2,
-            velocidad: random.nextDouble() * 150 + 50,
-            escala: random.nextDouble() * 6 + 4,
-          );
-        });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (progreso == 0.0 || progreso == 1.0) return;
-
-    final centroX = size.width / 2;
-    final centroY = size.height / 3; 
-
-    for (var p in particulas) {
-      final t = progreso;
-      final x = centroX + p.velocidad * math.cos(p.anguloInicial) * t;
-      final y = centroY + p.velocidad * math.sin(p.anguloInicial) * t + (200 * t * t);
-
-      final paint = Paint()
-        ..color = p.color.withOpacity(1.0 - t) 
-        ..style = PaintingStyle.fill;
-
-      canvas.drawCircle(Offset(x, y), p.escala, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _ConfetiPainter oldDelegate) => oldDelegate.progreso != progreso;
-}
-
-class _ParticulaConfeti {
-  final Color color;
-  final double anguloInicial;
-  final double velocidad;
-  final double escala;
-
-  _ParticulaConfeti({
-    required this.color,
-    required this.anguloInicial,
-    required this.velocidad,
-    required this.escala,
-  });
-}
-
 class SecuencialEstrellasWidget extends StatefulWidget {
   final int cantidadEstrellas;
-
   const SecuencialEstrellasWidget({super.key, required this.cantidadEstrellas});
 
   @override
   State<SecuencialEstrellasWidget> createState() => _SecuencialEstrellasWidgetState();
 }
 
-class _SecuencialEstrellasWidgetState extends State<SecuencialEstrellasWidget> with TickerProviderStateMixin {
-  late List<AnimationController> _controllers;
-  late List<Animation<double>> _animations;
+class _SecuencialEstrellasWidgetState extends State<SecuencialEstrellasWidget> {
+  final List<double> _escalasEstrellas = [0.0, 0.0, 0.0, 0.0, 0.0];
+  final AudioPlayer _audioPlayerEfecto = AudioPlayer();
 
   @override
   void initState() {
     super.initState();
-    _controllers = List.generate(5, (index) {
-      return AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 350),
-      );
-    });
-
-    _animations = _controllers.map((controller) {
-      return CurvedAnimation(parent: controller, curve: Curves.bounceOut);
-    }).toList();
-
-    _ejecutarCascada();
-  }
-
-  void _ejecutarCascada() async {
-    for (int i = 0; i < widget.cantidadEstrellas; i++) {
-      await Future.delayed(const Duration(milliseconds: 200));
-      if (mounted) _controllers[i].forward();
-    }
+    _reproducirEstrellasConRetraso();
   }
 
   @override
   void dispose() {
-    for (var controller in _controllers) {
-      controller.dispose();
-    }
+    _audioPlayerEfecto.dispose();
     super.dispose();
+  }
+
+  void _reproducirEstrellasConRetraso() async {
+    for (int i = 0; i < 5; i++) {
+      await Future.delayed(const Duration(milliseconds: 400));
+      if (!mounted) return;
+      
+      setState(() {
+        _escalasEstrellas[i] = 1.0;
+      });
+
+      if (i < widget.cantidadEstrellas) {
+        try {
+          await _audioPlayerEfecto.play(AssetSource('sounds/bien.mp3'), mode: PlayerMode.lowLatency);
+        } catch (e) {
+          debugPrint('Error reproduciendo sonido bien.mp3: $e');
+        }
+      }
+    }
   }
 
   @override
@@ -797,12 +717,15 @@ class _SecuencialEstrellasWidgetState extends State<SecuencialEstrellasWidget> w
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(5, (index) {
-        return ScaleTransition(
-          scale: _animations[index],
+        bool esGanada = index < widget.cantidadEstrellas;
+        return AnimatedScale(
+          scale: _escalasEstrellas[index],
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.bounceOut, 
           child: Icon(
-            index < widget.cantidadEstrellas ? Icons.star : Icons.star_border,
-            color: Colors.amber,
-            size: 36,
+            Icons.star,
+            color: esGanada ? Colors.amber : Colors.grey[300],
+            size: 44,
           ),
         );
       }),
