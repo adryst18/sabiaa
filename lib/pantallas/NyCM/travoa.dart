@@ -8,6 +8,7 @@ import 'package:sabia/models/log_entry.dart';
 import 'package:sabia/pantallas/NyCM/hlilbro1.dart'; 
 import 'travoami.dart';
 
+/// Clase que representa una abeja animada que aparece cuando el usuario traza
 class AbejaAnimada {
   final Offset posicion;
   final double rotacion;
@@ -21,6 +22,7 @@ class AbejaAnimada {
   });
 }
 
+/// Pantalla principal para trazar la letra A
 class TrazoAScreen extends StatefulWidget {
   const TrazoAScreen({super.key});
 
@@ -29,18 +31,28 @@ class TrazoAScreen extends StatefulWidget {
 }
 
 class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMixin {
+  // ========================================
+  // SERVICIOS Y REPRODUCTORES DE AUDIO
+  // ========================================
   final VoiceService _voiceService = VoiceService();
   final LogService _logService = LogService();
   final AudioPlayer _audioPlayerAbejas = AudioPlayer();
+  final AudioPlayer _audioPlayerLapiz = AudioPlayer();
   
-  List<List<Offset>> _trazos = [];
-  List<Offset> _trazoActual = [];
-  List<AbejaAnimada> _abejasHuerto = [];
+  // ========================================
+  // ESTADO DEL TRAZO
+  // ========================================
+  List<List<Offset>> _trazos = [];           // Lista de todos los trazos completados
+  List<Offset> _trazoActual = [];            // Trazo que se está dibujando actualmente
+  List<AbejaAnimada> _abejasHuerto = [];     // Abejas que aparecen al trazar
   
-  Offset? _posicionPanal;
-  double _anguloPanal = 0.0;
-  bool _estaTocando = false;
+  Offset? _posicionPanal;                    // Posición actual del cursor (panal)
+  double _anguloPanal = 0.0;                 // Ángulo de rotación del panal
+  bool _estaTocando = false;                 // Si el usuario está tocando la pantalla
 
+  // ========================================
+  // MÉTRICAS Y ESTADÍSTICAS
+  // ========================================
   final Stopwatch _cronometro = Stopwatch();
   int _intentosFallidos = 0;
   bool _completadoExitosamente = false;
@@ -49,20 +61,29 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
   double _sumaPrecisionMuestras = 0.0;
   int _totalMuestrasTomadas = 0;
 
-  late AnimationController _semillasBlinkController;
-  late AnimationController _loopAbejasController;
-  late AnimationController _confetiController; 
-  late AnimationController _demostracionController;
+  // ========================================
+  // CONTROLADORES DE ANIMACIÓN
+  // ========================================
+  late AnimationController _semillasBlinkController;    // Parpadeo de semillas
+  late AnimationController _loopAbejasController;       // Animación de abejas
+  late AnimationController _confetiController;          // Confeti al ganar
+  late AnimationController _demostracionController;     // Animación de demostración
   
-  int _faseTrazoActual = 0;
+  // ========================================
+  // FASES DEL TRAZO
+  // ========================================
+  int _faseTrazoActual = 0;                            // 0=Izquierda, 1=Derecha, 2=Medio
   List<Offset> _puntosReferenciaIzquierda = [];
   List<Offset> _puntosReferenciaDerecha = [];
   List<Offset> _puntosReferenciaMedio = [];
   
-  List<bool> _cubiertosIzquierda = [];
+  List<bool> _cubiertosIzquierda = [];                 // Puntos ya cubiertos en cada fase
   List<bool> _cubiertosDerecha = [];
   List<bool> _cubiertosMedio = [];
   
+  // ========================================
+  // ESTADO DE DEMOSTRACIÓN
+  // ========================================
   bool _mostrandoDemostracion = false;
   List<Offset> _trazoDemostracion = [];
 
@@ -72,11 +93,13 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
     _voiceService.init();
     _generarPuntosReferenciaPorPartes();
     
+    // Controlador para parpadeo de semillas (700ms, reversa)
     _semillasBlinkController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
     )..repeat(reverse: true);
 
+    // Controlador para animación fluida de abejas (16fps)
     _loopAbejasController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 16),
@@ -94,11 +117,13 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
       });
     _loopAbejasController.repeat();
 
+    // Controlador para confeti (2 segundos)
     _confetiController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
     );
     
+    // Controlador para demostración (2 segundos por trazo)
     _demostracionController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2000),
@@ -114,10 +139,12 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
     _confetiController.dispose();
     _demostracionController.dispose();
     _audioPlayerAbejas.dispose();
+    _audioPlayerLapiz.dispose();
     _cronometro.stop();
     super.dispose();
   }
 
+  /// Genera los puntos de referencia para cada parte de la letra A
   void _generarPuntosReferenciaPorPartes() {
     final centerX = 165.0;
     final topY = 60.0;
@@ -130,12 +157,12 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
     _puntosReferenciaDerecha.clear();
     _puntosReferenciaMedio.clear();
 
-    // Línea izquierda
+    // Línea izquierda (de arriba a abajo)
     for (double t = 0; t <= 1; t += 0.05) {
       _puntosReferenciaIzquierda.add(Offset(centerX - (t * 110), topY + (t * (bottomY - topY))));
     }
     
-    // Línea derecha
+    // Línea derecha (de arriba a abajo)
     for (double t = 0; t <= 1; t += 0.05) {
       _puntosReferenciaDerecha.add(Offset(centerX + (t * 110), topY + (t * (bottomY - topY))));
     }
@@ -157,6 +184,7 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
     _totalMuestrasTomadas = 0;
   }
 
+  /// Reproduce sonido de abejas en loop
   Future<void> _reproducirSonidoAbejas() async {
     try {
       await _audioPlayerAbejas.setReleaseMode(ReleaseMode.loop);
@@ -170,40 +198,59 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
     await _audioPlayerAbejas.stop();
   }
 
+  /// Reproduce sonido de lápiz en loop (para demostración)
+  Future<void> _reproducirSonidoLapiz() async {
+    try {
+      await _audioPlayerLapiz.setReleaseMode(ReleaseMode.loop);
+      await _audioPlayerLapiz.play(AssetSource('sounds/lapiz.mp3'));
+    } catch (e) {
+      debugPrint('Error cargando audio de lápiz: $e');
+    }
+  }
+
+  Future<void> _detenerSonidoLapiz() async {
+    await _audioPlayerLapiz.stop();
+  }
+
+  /// Pronuncia la letra A
   void _pronunciarLetraA() {
     _voiceService.hablar('A');
   }
 
+  /// Inicia la demostración automática del trazo
   Future<void> _iniciarDemostracion() async {
+    // Ocultar visualmente trazos, semillas y abejas, pero NO borrarlos de memoria
     setState(() {
       _mostrandoDemostracion = true;
       _trazoDemostracion.clear();
     });
     
-    // Demostración del trazo izquierdo
+    // Reproducir sonido de lápiz durante la demostración
+    await _reproducirSonidoLapiz();
+    
+    // Demostrar cada fase secuencialmente
     await _demostrarTrazo(_puntosReferenciaIzquierda, 0);
     await Future.delayed(const Duration(milliseconds: 300));
     
-    // Demostración del trazo derecho
     await _demostrarTrazo(_puntosReferenciaDerecha, 1);
     await Future.delayed(const Duration(milliseconds: 300));
     
-    // Demostración del trazo del medio
     await _demostrarTrazo(_puntosReferenciaMedio, 2);
     await Future.delayed(const Duration(milliseconds: 500));
     
-    // Limpiar demostración
+    // Detener sonido de lápiz
+    await _detenerSonidoLapiz();
+    
+    // Restaurar visualmente los trazos del usuario, semillas y abejas
     setState(() {
       _mostrandoDemostracion = false;
       _trazoDemostracion.clear();
-      _trazos.clear();
-      _trazoActual.clear();
-      _generarPuntosReferenciaPorPartes();
     });
     
     _voiceService.hablar('Ahora te toca a ti');
   }
 
+  /// Demuestra el trazo de una fase específica
   Future<void> _demostrarTrazo(List<Offset> puntos, int fase) async {
     _demostracionController.reset();
     _demostracionController.addListener(() {
@@ -219,6 +266,7 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
     _demostracionController.removeListener(() {});
   }
 
+  /// Inicia un nuevo trazo cuando el usuario toca la pantalla
   void _iniciarNuevoTrazo(Offset puntoInicial) {
     if (_completadoExitosamente || _mostrandoDemostracion) return;
     _reproducirSonidoAbejas();
@@ -234,12 +282,14 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
     });
   }
 
+  /// Actualiza el trazo mientras el usuario mueve el dedo
   void _actualizarTrazo(Offset puntoActual) {
     if (!_estaTocando || _trazoActual.isEmpty) return;
     
     Offset puntoAnterior = _trazoActual.last;
     double distancia = (puntoActual - puntoAnterior).distance;
 
+    // Solo agregar punto si se movió más de 6 píxeles
     if (distancia > 6) {
       double nuevoAngulo = math.atan2(
         puntoActual.dy - puntoAnterior.dy,
@@ -249,7 +299,8 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
       _trazoActual.add(puntoActual);
       _evaluarPrecisionMuestraContinua(puntoActual);
 
-      if (_trazoActual.length % 3 == 0) {
+      // Agregar abeja cada 5 puntos (espaciadas)
+      if (_trazoActual.length % 5 == 0) {
         _abejasHuerto.add(
           AbejaAnimada(
             posicion: puntoActual,
@@ -266,23 +317,34 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
     }
   }
 
+  /// CORREGIDO: Evalúa la precisión SOLO considerando los puntos de la fase actual
   void _evaluarPrecisionMuestraContinua(Offset posicionPanal) {
     const double maxCanalSombreado = 32.0; 
     double menorDistanciaALineaCentro = double.infinity;
 
-    for (var p in _puntosReferenciaIzquierda) {
-      double d = (posicionPanal - p).distance;
-      if (d < menorDistanciaALineaCentro) menorDistanciaALineaCentro = d;
-    }
-    for (var p in _puntosReferenciaDerecha) {
-      double d = (posicionPanal - p).distance;
-      if (d < menorDistanciaALineaCentro) menorDistanciaALineaCentro = d;
-    }
-    for (var p in _puntosReferenciaMedio) {
-      double d = (posicionPanal - p).distance;
-      if (d < menorDistanciaALineaCentro) menorDistanciaALineaCentro = d;
+    // CORRECCIÓN: Solo evaluar puntos de la FASE ACTUAL del trazo
+    // Esto evita que se cuente como preciso cuando el usuario está cerca de otra línea
+    if (_faseTrazoActual == 0) {
+      // Fase 0: Solo evaluar puntos de la línea izquierda
+      for (var p in _puntosReferenciaIzquierda) {
+        double d = (posicionPanal - p).distance;
+        if (d < menorDistanciaALineaCentro) menorDistanciaALineaCentro = d;
+      }
+    } else if (_faseTrazoActual == 1) {
+      // Fase 1: Solo evaluar puntos de la línea derecha
+      for (var p in _puntosReferenciaDerecha) {
+        double d = (posicionPanal - p).distance;
+        if (d < menorDistanciaALineaCentro) menorDistanciaALineaCentro = d;
+      }
+    } else if (_faseTrazoActual == 2) {
+      // Fase 2: Solo evaluar puntos de la línea del medio
+      for (var p in _puntosReferenciaMedio) {
+        double d = (posicionPanal - p).distance;
+        if (d < menorDistanciaALineaCentro) menorDistanciaALineaCentro = d;
+      }
     }
 
+    // Calcular precisión basada en la distancia al centro de la línea actual
     double precisionMuestra = 0.0;
     if (menorDistanciaALineaCentro <= 14.0) {
       precisionMuestra = 100.0; 
@@ -295,6 +357,7 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
     _sumaPrecisionMuestras += precisionMuestra;
     _totalMuestrasTomadas++;
 
+    // Marcar puntos cubiertos y avanzar de fase
     if (_faseTrazoActual == 0) {
       for (int i = 0; i < _puntosReferenciaIzquierda.length; i++) {
         if ((posicionPanal - _puntosReferenciaIzquierda[i]).distance < maxCanalSombreado) {
@@ -330,6 +393,7 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
     });
   }
 
+  /// Finaliza el trazo actual cuando el usuario levanta el dedo
   void _finalizarTrazoActual() {
     _detenerSonidoAbejas();
     if (_trazoActual.isNotEmpty) {
@@ -344,6 +408,7 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
     }
   }
 
+  /// Ejecuta la calificación final y muestra ventana de resultados
   void _ejecutarCalificacionYVentana() {
     _cronometro.stop();
     setState(() {
@@ -451,6 +516,7 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
     );
   }
 
+  /// Reinicia todo el estado para empezar de nuevo
   void _reiniciarTodo() {
     setState(() {
       _trazos.clear();
@@ -490,7 +556,6 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
                 ),
               ),
               
-              // Letra A en la parte superior
               GestureDetector(
                 onTap: _pronunciarLetraA,
                 child: Container(
@@ -583,12 +648,12 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
                                     curve: Curves.easeOutBack,
                                     child: Container(
                                       decoration: const BoxDecoration(
-                                        color: Color(0xFFFFD54F),
+                                        color: Color(0xFFFFA000),
                                         shape: BoxShape.circle,
                                         boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)], 
                                       ),
                                       padding: const EdgeInsets.all(4),
-                                      child: const Icon(Icons.hexagon, size: 36, color: Color(0xFF134074)),
+                                      child: const Icon(Icons.hexagon, size: 36, color: Colors.white),
                                     ),
                                   ),
                                 ),
@@ -606,7 +671,6 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Botón amarillo de play para demostración
                     IconButton(
                       style: IconButton.styleFrom(
                         backgroundColor: const Color(0xFFFFD54F),
@@ -665,6 +729,7 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
     );
   }
 
+  /// Widget para mostrar estadísticas en vivo
   Widget _buildLiveStatWidget(IconData icon, String title, String value, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -690,6 +755,7 @@ class _TrazoAScreenState extends State<TrazoAScreen> with TickerProviderStateMix
   }
 }
 
+/// Widget para mostrar estrellas de calificación secuencialmente
 class SecuencialEstrellasWidget extends StatefulWidget {
   final int cantidadEstrellas;
   const SecuencialEstrellasWidget({super.key, required this.cantidadEstrellas});
@@ -754,6 +820,7 @@ class _SecuencialEstrellasWidgetState extends State<SecuencialEstrellasWidget> {
   }
 }
 
+/// Painter personalizado para dibujar la letra A y todos los elementos visuales
 class MontessoriPainter extends CustomPainter {
   final List<List<Offset>> trazos;
   final List<Offset> trazoActual;
@@ -790,16 +857,9 @@ class MontessoriPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Sombreado AMARILLO de la letra (ya no verde)
-    final shadowPaint = Paint()
-      ..color = const Color(0xFFFFF59D).withOpacity(0.4)
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..strokeWidth = 64.0;
-
+    // Letra A amarilla de fondo (guía)
     final letterPaint = Paint()
-      ..color = const Color(0xFFFFF176)
+      ..color = const Color(0xFFFFF59D)
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
@@ -815,74 +875,84 @@ class MontessoriPainter extends CustomPainter {
       ..moveTo(165.0 - 110.0 + (0.15 * 220.0), 220.0)
       ..lineTo(165.0 - 110.0 + (0.85 * 220.0), 220.0);
 
-    canvas.drawPath(pathLetra, shadowPaint);
-    canvas.drawPath(pathBarra, shadowPaint);
     canvas.drawPath(pathLetra, letterPaint);
     canvas.drawPath(pathBarra, letterPaint);
 
-    // Camino de miel (marrón/dorado)
-    final paintCaminoMiel = Paint()
-      ..color = const Color(0xFFD4A574)
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..strokeWidth = 44.0;
+    // Durante la demostración, ocultar trazos del usuario, semillas y abejas
+    if (!mostrandoDemostracion) {
+      // Trazos del usuario (Miel base con efecto fluido)
+      final paintMielBase = Paint()
+        ..color = const Color(0xFFD48C22)
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..strokeWidth = 38.0
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8.0); 
 
-// Trazos del usuario (Miel base con efecto fluido)
-final paintMielBase = Paint()
-  ..color = const Color(0xFFD48C22) // Un tono miel dorado/ámbar más vivo
-  ..style = PaintingStyle.stroke
-  ..strokeCap = StrokeCap.round
-  ..strokeJoin = StrokeJoin.round
-  ..strokeWidth = 38.0 // Un poco más grueso para la base de la gota
-  // El truco del fluido: desenfocar los bordes para que los puntos cercanos se "fusionen"
-  ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8.0); 
+      final paintMielBrillo = Paint()
+        ..color = const Color(0xFFFFE082)
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..strokeWidth = 14.0;
 
-final paintMielBrillo = Paint()
-  ..color = const Color(0xFFFFE082) // Brillo interno amarillo claro/miel fluido
-  ..style = PaintingStyle.stroke
-  ..strokeCap = StrokeCap.round
-  ..strokeJoin = StrokeJoin.round
-  ..strokeWidth = 14.0; // Más delgado, va al centro simulando volumen
+      final paintMielBorde = Paint()
+        ..color = const Color(0xFF9E5E00)
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..strokeWidth = 42.0
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0);
 
-// Opcional: Para el borde oscuro de la miel
-final paintMielBorde = Paint()
-  ..color = const Color(0xFF9E5E00)
-  ..style = PaintingStyle.stroke
-  ..strokeCap = StrokeCap.round
-  ..strokeJoin = StrokeJoin.round
-  ..strokeWidth = 42.0
-  ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0);
+      void _dibujarCamino(List<Offset> puntos) {
+        if (puntos.length > 1) {
+          final path = Path()..moveTo(puntos.first.dx, puntos.first.dy);
+          
+          for (int i = 1; i < puntos.length - 1; i++) {
+            final xc = (puntos[i].dx + puntos[i + 1].dx) / 2;
+            final yc = (puntos[i].dy + puntos[i + 1].dy) / 2;
+            path.quadraticBezierTo(puntos[i].dx, puntos[i].dy, xc, yc);
+          }
+          path.lineTo(puntos.last.dx, puntos.last.dy);
 
-// Función interna para dibujar un Path
-void _dibujarCamino(Canvas canvas, List<Offset> puntos) {
-  if (puntos.length > 1) {
-    final path = Path()..moveTo(puntos.first.dx, puntos.first.dy);
-    
-    // En lugar de lineTo directo, usamos curvas Bézier (quadraticBezierTo) 
-    // para que el trazo de la miel se mueva de forma fluida y no rígida.
-    for (int i = 1; i < puntos.length - 1; i++) {
-      final xc = (puntos[i].dx + puntos[i + 1].dx) / 2;
-      final yc = (puntos[i].dy + puntos[i + 1].dy) / 2;
-      path.quadraticBezierTo(puntos[i].dx, puntos[i].dy, xc, yc);
+          canvas.drawPath(path, paintMielBorde);
+          canvas.drawPath(path, paintMielBase);
+          canvas.drawPath(path, paintMielBrillo);
+        }
+      }
+
+      for (var trazo in trazos) {
+        _dibujarCamino(trazo);
+      }
+
+      _dibujarCamino(trazoActual);
+
+      // Semillas amarillas parpadeantes
+      final paintSemilla = Paint()
+        ..color = const Color.fromARGB(255, 202, 142, 12).withOpacity(0.4 + (factorParpadeo * 0.6))
+        ..style = PaintingStyle.fill;
+
+      if (faseActual == 0) {
+        for (int i = 0; i < refIzquierda.length; i++) {
+          if (!cubiertosIzquierda[i]) {
+            canvas.drawCircle(refIzquierda[i], 5.0 + (factorParpadeo * 3), paintSemilla);
+          }
+        }
+      } else if (faseActual == 1) {
+        for (int i = 0; i < refDerecha.length; i++) {
+          if (!cubiertosDerecha[i]) {
+            canvas.drawCircle(refDerecha[i], 5.0 + (factorParpadeo * 3), paintSemilla);
+          }
+        }
+      } else if (faseActual == 2) {
+        for (int i = 0; i < refMedio.length; i++) {
+          if (!cubiertosMedio[i]) {
+            canvas.drawCircle(refMedio[i], 5.0 + (factorParpadeo * 3), paintSemilla);
+          }
+        }
+      }
     }
-    // Conectar el último punto
-    path.lineTo(puntos.last.dx, puntos.last.dy);
 
-    // Dibujamos las capas para generar el volumen de la miel
-    canvas.drawPath(path, paintMielBorde);   // 1. Sombra/Borde exterior
-    canvas.drawPath(path, paintMielBase);    // 2. Cuerpo de la miel
-    canvas.drawPath(path, paintMielBrillo);  // 3. Brillo de reflejo líquido
-  }
-}
-
-// Renderizar todos los trazos guardados
-for (var trazo in trazos) {
-  _dibujarCamino(canvas, trazo);
-}
-
-// Renderizar el trazo actual en tiempo real
-_dibujarCamino(canvas, trazoActual);
     // Trazo de demostración (miel brillante)
     if (mostrandoDemostracion && trazosDemostracion.length > 1) {
       final paintDemostracion = Paint()
@@ -900,55 +970,24 @@ _dibujarCamino(canvas, trazoActual);
       canvas.drawPath(pathDemostracion, paintDemostracion);
     }
 
-    // Semillas amarillas parpadeantes (solo las no cubiertas)
-    final paintSemilla = Paint()
-      ..color = const Color.fromARGB(255, 202, 142, 12).withOpacity(0.4 + (factorParpadeo * 0.6))
-      ..style = PaintingStyle.fill;
+    // Abejas del huerto (solo visibles si NO está en demostración)
+    if (!mostrandoDemostracion) {
+      for (var abeja in abejasHuerto) {
+        if (abeja.escalaActual > 0.05) {
+          canvas.save();
+          canvas.translate(abeja.posicion.dx, abeja.posicion.dy);
+          canvas.rotate(abeja.rotacion);
+          canvas.scale(abeja.escalaActual);
 
-    if (faseActual == 0) {
-      for (int i = 0; i < refIzquierda.length; i++) {
-        if (!cubiertosIzquierda[i]) {
-          canvas.drawCircle(refIzquierda[i], 5.0 + (factorParpadeo * 3), paintSemilla);
+          final textPainter = TextPainter(
+            text: const TextSpan(text: '🐝', style: TextStyle(fontSize: 32)),
+            textDirection: TextDirection.ltr,
+          )..layout();
+
+          textPainter.paint(canvas, Offset(-textPainter.width / 2, -textPainter.height / 2));
+          canvas.restore();
         }
       }
-    } else if (faseActual == 1) {
-      for (int i = 0; i < refDerecha.length; i++) {
-        if (!cubiertosDerecha[i]) {
-          canvas.drawCircle(refDerecha[i], 5.0 + (factorParpadeo * 3), paintSemilla);
-        }
-      }
-    } else if (faseActual == 2) {
-      for (int i = 0; i < refMedio.length; i++) {
-        if (!cubiertosMedio[i]) {
-          canvas.drawCircle(refMedio[i], 5.0 + (factorParpadeo * 3), paintSemilla);
-        }
-      }
-    }
-
-    // Abejas en el huerto (reemplazan a las zanahorias)
-    for (var abeja in abejasHuerto) {
-      if (abeja.escalaActual > 0.05) {
-        canvas.save();
-        canvas.translate(abeja.posicion.dx, abeja.posicion.dy);
-        canvas.rotate(abeja.rotacion);
-        canvas.scale(abeja.escalaActual);
-
-        final textPainter = TextPainter(
-          text: const TextSpan(text: '🐝', style: TextStyle(fontSize: 24)),
-          textDirection: TextDirection.ltr,
-        )..layout();
-
-        textPainter.paint(canvas, Offset(-textPainter.width / 2, -textPainter.height / 2));
-        canvas.restore();
-      }
-    }
-  }
-
-  void _drawDashedLine(Canvas canvas, List<Offset> puntos, Paint paint) {
-    if (puntos.length < 2) return;
-    
-    for (int i = 0; i < puntos.length - 1; i += 2) {
-      canvas.drawLine(puntos[i], puntos[i + 1], paint);
     }
   }
 
@@ -956,6 +995,7 @@ _dibujarCamino(canvas, trazoActual);
   bool shouldRepaint(covariant MontessoriPainter oldDelegate) => true;
 }
 
+/// Painter para el efecto de confeti
 class ConfetiPainter extends CustomPainter {
   final double progreso;
   ConfetiPainter({required this.progreso});
